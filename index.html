@@ -1992,6 +1992,16 @@ function renderLog(c){
   const wIdx=getDayWorkoutIdx(logDayIdx,dk);
   const day=DEF_DAYS[wIdx];
   const exDefs=getExDefs(wIdx);
+  const saveSessionProgress=(message,finishSession=false)=>{
+    const exercises=exDefs.map(ex=>({...ex}));
+    const savedSets=logSets.map(set=>({...set,exName:exercises[set.ei]?.n||set.exName||""}));
+    DB.entries[dk]={dayIdx:wIdx,exercises,sets:savedSets,notes:logNote,ts:new Date().toISOString()};
+    logSets=savedSets;
+    saveDB("entries");
+    checkPRs(wIdx,dk);
+    if(finishSession)stopRecoveryTimer();
+    flash(message||"✓ Progressi salvati!",finishSession?undefined:"#38f2c1");
+  };
   const offsetMod=DB.scheduleOffset%7;
   const player=getPlayerStats();
   const phaseProgress=getPhaseProgress();
@@ -2286,6 +2296,19 @@ function renderLog(c){
       preloadBtn.textContent=(isCardio?"⚡ Carica cardio ultima sessione (":"⚡ Carica pesi ultima sessione (")+lastSess.date.slice(5)+")";
       body.appendChild(preloadBtn);
     }
+    const exerciseComplete=mySets.length>=(parseInt(ex.sets)||1);
+    const saveExerciseBtn=el("button",{
+      class:"btn"+(exerciseComplete?" btn-acc":""),
+      style:"margin-top:8px;font-size:12px;padding:10px 14px;width:100%;border-color:var(--legs);color:"+(exerciseComplete?"#020711":"var(--legs)")+";opacity:"+(mySets.length?"1":".45"),
+      onclick:()=>{
+        if(!mySets.length){flash("Inserisci almeno una serie prima di salvare","#ff6b47");return;}
+        saveSessionProgress("✓ "+ex.n+" salvato");
+        saveExerciseBtn.textContent="✓ Esercizio salvato";
+        saveExerciseBtn.style.background="var(--legs)";
+        saveExerciseBtn.style.color="#020711";
+      }
+    },[exerciseComplete?"💾 Salva esercizio completato":"💾 Salva progressi esercizio ("+mySets.length+"/"+ex.sets+")"]);
+    body.appendChild(saveExerciseBtn);
     card.appendChild(body);
     c.appendChild(card);
   });
@@ -2316,11 +2339,7 @@ function renderLog(c){
 
   const br=el("div",{class:"btn-row"});
   br.appendChild(el("button",{class:"btn btn-acc",style:"flex:2",onclick:()=>{
-    const exercises=exDefs.map(ex=>({...ex}));
-    const savedSets=logSets.map(set=>({...set,exName:exercises[set.ei]?.n||set.exName||""}));
-    DB.entries[dk]={dayIdx:wIdx,exercises,sets:savedSets,notes:logNote,ts:new Date().toISOString()};
-    logSets=savedSets;
-    saveDB("entries");checkPRs(wIdx,dk);stopRecoveryTimer();flash("✓ Sessione salvata!");
+    saveSessionProgress("✓ Sessione salvata!",true);
   }},["💾 Salva sessione"]));
   br.appendChild(el("button",{class:"btn",style:"flex:1",onclick:()=>{logSets=[];logNote="";render();flash("Reset fatto","#9b47ff");}},["🔄 Reset"]));
   if(DB.entries[dk]&&DB.entries[dk].dayIdx===wIdx&&!DB.entries[dk].skipped){
