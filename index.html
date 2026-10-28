@@ -1778,17 +1778,29 @@ function initLogDay(){
 }
 
 // ── Recupera le serie dell'ultima sessione per un esercizio ──────────────
+function normalizeExerciseName(name){
+  return String(name||"")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .trim();
+}
 function getLastSessionSets(wIdx,ei,exName,excludeDate){
-  // Cerca solo sessioni precedenti dello stesso allenamento ed esercizio reale.
+  // Cerca l'esercizio reale in tutto lo storico: un cambio di giorno o posizione
+  // nella scheda non deve far riemergere una prestazione vecchia di mesi.
+  const targetName=normalizeExerciseName(exName);
   const prev=Object.entries(DB.entries)
-    .filter(([d,e])=>e.dayIdx===wIdx&&!e.skipped&&d<(excludeDate||todayStr()))
+    .filter(([d,e])=>!e.skipped&&Array.isArray(e.sets)&&d<(excludeDate||todayStr()))
     .sort((a,b)=>b[0].localeCompare(a[0]));
   for(const [date,entry] of prev){
-    const savedName=entry.exercises?.[ei]?.n;
     const sets=(entry.sets||[]).filter(s=>{
       const setName=s.exName||entry.exercises?.[s.ei]?.n;
-      if(setName)return setName===exName;
-      return s.ei===ei&&(!savedName||savedName===exName);
+      if(setName)return normalizeExerciseName(setName)===targetName;
+
+      // Compatibilità con le sessioni più vecchie, che non salvavano il nome:
+      // in quel caso l'indice è attendibile soltanto nello stesso workout.
+      return entry.dayIdx===wIdx&&s.ei===ei;
     });
     if(sets.length)return{date,sets};
   }
@@ -2170,7 +2182,8 @@ function renderLog(c){
       const maxKg=Math.max(...lastSess.sets.map(s=>parseFloat(s.kg)||0));
       const prevRow=el("div",{style:"margin-top:5px;background:#e8ff4709;border:1px solid #e8ff4222;border-radius:6px;padding:6px 8px"});
       const prevTop=el("div",{style:"display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"});
-      prevTop.appendChild(el("span",{style:"font-size:9px;color:var(--acc);font-weight:700;letter-spacing:.3px"},["📊 ULTIMA VOLTA · "+lastSess.date.slice(5)]));
+      const previousDate=localDateFromString(lastSess.date).toLocaleDateString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric"});
+      prevTop.appendChild(el("span",{style:"font-size:9px;color:var(--acc);font-weight:700;letter-spacing:.3px"},["📊 ULTIMA VOLTA · "+previousDate]));
       prevTop.appendChild(el("span",{style:"font-size:9px;color:var(--mut)"},[isCardio?lastSess.sets.length+" registrazioni":lastSess.sets.length+" serie · max "+maxKg+" kg"]));
       prevRow.appendChild(prevTop);
       lastSess.sets.forEach((s,i)=>{
