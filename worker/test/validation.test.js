@@ -161,3 +161,31 @@ test("accetta una ricetta regionale scomposta senza nutrienti generati dal model
     globalThis.caches = originalCaches;
   }
 });
+
+test("interpreta insieme alimento e bevanda alcolica senza generare nutrienti", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  globalThis.caches = { default: { match: async () => null, put: async () => undefined } };
+  globalThis.fetch = async () => new Response(JSON.stringify({ steps: [{ type: "model_output", content: [{ type: "text", text: JSON.stringify({
+    action: "add", meal: "dinner", targetName: "", needsClarification: false, question: "",
+    items: [
+      { name: "Caponata siciliana", kind: "food", quantity: 200, unit: "g", state: "cooked", recognition: "recipe_estimate", suggestedServingGrams: 0, suggestedServingMl: 0, suggestedUnitGrams: 0, suggestedUnitMl: 0, ingredients: [{ name: "Melanzane", amount: 140, unit: "g" }, { name: "Olio EVO", amount: 15, unit: "g" }], assumptions: ["Ricetta casalinga stimata"] },
+      { name: "Vino rosso", kind: "beverage", quantity: 150, unit: "ml", state: "unspecified", recognition: "catalog", suggestedServingGrams: 0, suggestedServingMl: 0, suggestedUnitGrams: 0, suggestedUnitMl: 0, ingredients: [], assumptions: [] }
+    ]
+  }) }] }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+  try {
+    const response = await worker.fetch(new Request("https://worker.example/nutrition/parse", {
+      method: "POST", headers: { Origin: "https://sitowebsicilia.github.io", "Content-Type": "application/json", "X-Client-Id": "nutrition_mixed_123456" },
+      body: JSON.stringify({ text: "200 g di caponata e 150 ml di vino", date: "2026-10-30", knownFoods: ["Melanzane", "Olio EVO", "Vino rosso"] })
+    }), { GEMINI_API_KEY: "test", AI_RATE_LIMITER: { limit: async () => ({ success: true }) } });
+    const result = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(result.interpretation.items.length, 2);
+    assert.equal(result.interpretation.items[1].kind, "beverage");
+    assert.equal(result.interpretation.items[1].unit, "ml");
+    assert.equal("kcal" in result.interpretation.items[1], false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.caches = originalCaches;
+  }
+});

@@ -110,7 +110,7 @@ export function validateNutritionPayload(input) {
   if (typeof input.text !== "string" || input.text.trim().length < 3 || input.text.length > 600) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date || "")) return null;
   const knownFoods = Array.isArray(input.knownFoods)
-    ? [...new Set(input.knownFoods.filter(name => typeof name === "string").map(name => name.trim().slice(0, 100)).filter(Boolean))].slice(0, 120)
+    ? [...new Set(input.knownFoods.filter(name => typeof name === "string").map(name => name.trim().slice(0, 100)).filter(Boolean))].slice(0, 180)
     : [];
   return { version: 1, text: input.text.trim(), date: input.date, knownFoods };
 }
@@ -162,16 +162,19 @@ ${JSON.stringify(data.history)}`;
 function buildNutritionPrompt(data) {
   return `Sei SYSTEM NUTRITION AI. Interpreta il comando alimentare. Non calcolare calorie o macronutrienti: li calcolerà il codice.
 Prima uniforma il nome con l'archivio. Se il piatto non è nell'archivio ed è regionale, tradizionale, casalingo o composto, riconoscilo e descrivi una ricetta tipica usando ESCLUSIVAMENTE ingredienti presenti nell'archivio.
-Per una ricetta indica i grammi realistici di ogni ingrediente nella porzione consumata, includendo condimenti, panatura e olio assorbito quando pertinenti. Sono ipotesi modificabili, non dati certi.
+Riconosci anche acqua, bevande calde, latte e bevande vegetali, succhi, bibite normali o zero, energy drink, shake, birra, vino, liquori e cocktail. Alimenti e bevande possono comparire nella stessa frase e devono diventare item separati.
+Per una ricetta o bevanda mista indica quantità realistiche di ogni ingrediente nella porzione consumata, includendo condimenti, panatura, olio assorbito, zucchero, alcol e mixer quando pertinenti. Sono ipotesi modificabili, non dati certi.
+Per i cocktail distingui mixer normale e zero. Usa soltanto ingredienti presenti nell'archivio e non produrre calorie, macro, zuccheri o grammi di alcol: saranno calcolati dal codice.
 Se l'utente non indica il peso, proponi una porzione tipica in suggestedServingGrams e non fare domande. Chiedi un dettaglio soltanto se senza di esso non puoi identificare il piatto o la variante cambia radicalmente la stima.
 Se indica un numero di pezzi, mantieni unit=piece e proponi suggestedUnitGrams per il peso edibile di un pezzo.
 La data selezionata è ${data.date}. I pasti ammessi sono breakfast, lunch, dinner, snacks.
 Azioni ammesse: add, copy_previous, update_quantity, delete.
 Per "stessa colazione di ieri" usa copy_previous. Per correzioni usa update_quantity. Se il pasto non è specificato, usa snacks.
-Unità ammesse: g, ml, piece. Stato ammesso: raw, cooked, unspecified.
+Unità ammesse: g, ml, piece. Stato ammesso: raw, cooked, unspecified. kind deve essere food oppure beverage.
 Rispondi esclusivamente con JSON valido, senza markdown:
-{"action":"add|copy_previous|update_quantity|delete","meal":"breakfast|lunch|dinner|snacks","items":[{"name":"...","quantity":0,"unit":"g|ml|piece","state":"raw|cooked|unspecified","recognition":"catalog|recipe_estimate","suggestedServingGrams":0,"suggestedUnitGrams":0,"ingredients":[{"name":"nome esatto archivio","grams":0}],"assumptions":["ipotesi breve"]}],"targetName":"","needsClarification":false,"question":""}
+{"action":"add|copy_previous|update_quantity|delete","meal":"breakfast|lunch|dinner|snacks","items":[{"name":"...","kind":"food|beverage","quantity":0,"unit":"g|ml|piece","state":"raw|cooked|unspecified","recognition":"catalog|recipe_estimate|cocktail_estimate","suggestedServingGrams":0,"suggestedServingMl":0,"suggestedUnitGrams":0,"suggestedUnitMl":0,"ingredients":[{"name":"nome esatto archivio","amount":0,"unit":"g|ml"}],"assumptions":["ipotesi breve"]}],"targetName":"","needsClarification":false,"question":""}
 Per un alimento semplice o già archiviato usa recognition=catalog, ingredients=[] e valori suggeriti a 0. Per un piatto composto sconosciuto usa recipe_estimate, almeno 2 ingredienti e almeno una ipotesi.
+Per cocktail, cappuccino, smoothie e shake usa cocktail_estimate, kind=beverage, componenti in ml o g e almeno una ipotesi. Per una bevanda senza quantità proponi suggestedServingMl. Per un bicchiere/pezzo proponi suggestedUnitMl.
 Imposta needsClarification=true e una sola domanda breve solo quando il dettaglio è davvero indispensabile.
 Alimenti già presenti nell'archivio personale o interno (usali per uniformare i nomi quando la corrispondenza è evidente): ${JSON.stringify(data.knownFoods)}
 Comando: ${data.text}`;
@@ -185,11 +188,14 @@ function nutritionOutputIsValid(value) {
       item && typeof item.name === "string" && item.name.trim().length >= 1 && item.name.length <= 100 &&
       Number.isFinite(Number(item.quantity)) && Number(item.quantity) >= 0 && Number(item.quantity) <= 5000 &&
       ["g", "ml", "piece"].includes(item.unit) && ["raw", "cooked", "unspecified"].includes(item.state) &&
-      ["catalog", "recipe_estimate"].includes(item.recognition || "catalog") &&
+      ["food", "beverage"].includes(item.kind || "food") &&
+      ["catalog", "recipe_estimate", "cocktail_estimate"].includes(item.recognition || "catalog") &&
       finiteNumber(item.suggestedServingGrams || 0, 0, 5000) !== undefined &&
+      finiteNumber(item.suggestedServingMl || 0, 0, 5000) !== undefined &&
       finiteNumber(item.suggestedUnitGrams || 0, 0, 2000) !== undefined &&
+      finiteNumber(item.suggestedUnitMl || 0, 0, 2000) !== undefined &&
       Array.isArray(item.ingredients || []) && (item.ingredients || []).length <= 20 &&
-      (item.ingredients || []).every(ingredient => ingredient && typeof ingredient.name === "string" && ingredient.name.trim().length > 0 && ingredient.name.length <= 100 && finiteNumber(ingredient.grams, 0.1, 5000) !== undefined) &&
+      (item.ingredients || []).every(ingredient => ingredient && typeof ingredient.name === "string" && ingredient.name.trim().length > 0 && ingredient.name.length <= 100 && finiteNumber(ingredient.amount ?? ingredient.grams, 0.1, 5000) !== undefined && ["g", "ml"].includes(ingredient.unit || "g")) &&
       Array.isArray(item.assumptions || []) && (item.assumptions || []).length <= 8 && (item.assumptions || []).every(note => typeof note === "string" && note.length <= 180)) &&
     typeof value.needsClarification === "boolean" && typeof (value.question || "") === "string" && (value.question || "").length <= 240;
 }
@@ -243,23 +249,26 @@ async function askGeminiNutrition(data, env) {
   interpretation.items = interpretation.items.map(item => ({
     ...item,
     name: item.name.trim(),
+    kind: item.kind || "food",
     quantity: Number(item.quantity),
     recognition: item.recognition || "catalog",
     suggestedServingGrams: Number(item.suggestedServingGrams) || 0,
+    suggestedServingMl: Number(item.suggestedServingMl) || 0,
     suggestedUnitGrams: Number(item.suggestedUnitGrams) || 0,
-    ingredients: (item.ingredients || []).map(ingredient => ({ name: ingredient.name.trim(), grams: Number(ingredient.grams) })),
+    suggestedUnitMl: Number(item.suggestedUnitMl) || 0,
+    ingredients: (item.ingredients || []).map(ingredient => ({ name: ingredient.name.trim(), amount: Number(ingredient.amount ?? ingredient.grams), unit: ingredient.unit || "g" })),
     assumptions: (item.assumptions || []).map(note => note.trim()).filter(Boolean)
   }));
   interpretation.items = interpretation.items.map(item => {
-    if (item.recognition !== "recipe_estimate" || item.unit !== "piece" || item.quantity <= 0 || item.suggestedUnitGrams <= 0 || !item.ingredients.length) return item;
-    const expectedGrams = item.quantity * item.suggestedUnitGrams;
-    const ingredientGrams = item.ingredients.reduce((sum, ingredient) => sum + ingredient.grams, 0);
+    if (!["recipe_estimate", "cocktail_estimate"].includes(item.recognition) || item.unit !== "piece" || item.quantity <= 0 || (!item.suggestedUnitGrams && !item.suggestedUnitMl) || !item.ingredients.length) return item;
+    const expectedGrams = item.quantity * (item.kind === "beverage" ? item.suggestedUnitMl : item.suggestedUnitGrams);
+    const ingredientGrams = item.ingredients.reduce((sum, ingredient) => sum + ingredient.amount, 0);
     if (ingredientGrams >= expectedGrams * 0.75 || ingredientGrams <= 0) return item;
     const scale = expectedGrams / ingredientGrams;
     return {
       ...item,
-      ingredients: item.ingredients.map(ingredient => ({ ...ingredient, grams: Math.round(ingredient.grams * scale * 10) / 10 })),
-      assumptions: [...item.assumptions, `Ingredienti proporzionati a ${item.quantity} pezzi da circa ${item.suggestedUnitGrams} g ciascuno.`].slice(0, 8)
+      ingredients: item.ingredients.map(ingredient => ({ ...ingredient, amount: Math.round(ingredient.amount * scale * 10) / 10 })),
+      assumptions: [...item.assumptions, `Ingredienti proporzionati a ${item.quantity} porzioni da circa ${item.kind === "beverage" ? item.suggestedUnitMl + " ml" : item.suggestedUnitGrams + " g"} ciascuna.`].slice(0, 8)
     };
   });
   interpretation.targetName = typeof interpretation.targetName === "string" ? interpretation.targetName.trim().slice(0, 100) : "";
