@@ -88,7 +88,31 @@ export function validateOverviewPayload(input) {
     if (recent.includes(null)) return null;
     exercises.push({ name: exercise.name.trim(), sessions, recent });
   }
-  return { version: 1, question, history: { totalSessions, firstDate, lastDate, workoutCounts, exercises } };
+  let nutritionSummary = null;
+  if (history.nutritionSummary && typeof history.nutritionSummary === "object") {
+    const values = ["days", "avgKcal", "avgProtein", "avgCarbs", "avgFat"].map(key => finiteNumber(history.nutritionSummary[key], 0, 10000));
+    if (values.includes(undefined)) return null;
+    nutritionSummary = Object.fromEntries(["days", "avgKcal", "avgProtein", "avgCarbs", "avgFat"].map((key, index) => [key, values[index]]));
+  }
+  let weightSummary = null;
+  if (history.weightSummary && typeof history.weightSummary === "object") {
+    const entries = finiteNumber(history.weightSummary.entries, 0, 5000);
+    const latest = finiteNumber(history.weightSummary.latest, 20, 500, true);
+    const earliest = finiteNumber(history.weightSummary.earliest, 20, 500, true);
+    if (entries === undefined || latest === undefined || earliest === undefined) return null;
+    weightSummary = { entries, latest, earliest };
+  }
+  return { version: 1, question, history: { totalSessions, firstDate, lastDate, workoutCounts, exercises, nutritionSummary, weightSummary } };
+}
+
+export function validateNutritionPayload(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  if (typeof input.text !== "string" || input.text.trim().length < 3 || input.text.length > 600) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date || "")) return null;
+  const knownFoods = Array.isArray(input.knownFoods)
+    ? [...new Set(input.knownFoods.filter(name => typeof name === "string").map(name => name.trim().slice(0, 100)).filter(Boolean))].slice(0, 120)
+    : [];
+  return { version: 1, text: input.text.trim(), date: input.date, knownFoods };
 }
 
 function outputIsValid(value) {
@@ -124,13 +148,40 @@ function buildOverviewPrompt(data) {
     : "Fornisci una panoramica generale dello storico e indica le priorità più utili per le prossime sessioni.";
   return `Sei SYSTEM AI COACH, un assistente prudente per l'analisi dello storico di allenamento.
 ${request}
-Analizza frequenza, distribuzione degli allenamenti, kg, ripetizioni, RIR, miglioramenti, stabilità e possibili stalli usando solo il riepilogo fornito.
+Analizza frequenza, distribuzione degli allenamenti, kg, ripetizioni, RIR, nutrizione media e andamento del peso usando solo il riepilogo fornito.
+Individua eventuali correlazioni tra alimentazione, peso e prestazioni, ma non presentarle mai come cause certe.
+Puoi suggerire di valutare una modifica calorica, ma non dichiarare che l'obiettivo sia stato modificato: ogni modifica richiede conferma esplicita dell'utente.
 Non suggerire automaticamente aumenti di carico. Non inventare dati e non formulare diagnosi mediche.
 Se una conclusione non è supportata dallo storico, dichiaralo chiaramente. Scrivi in italiano in modo concreto e breve.
 Rispondi esclusivamente con JSON valido, senza markdown, nel formato:
 {"status":"miglioramento|stabile|margine_rir|stallo|dati_insufficienti","summary":"...","insights":["..."],"recommendation":"..."}
 Riepilogo completo disponibile nell'app:
 ${JSON.stringify(data.history)}`;
+}
+
+function buildNutritionPrompt(data) {
+  return `Sei SYSTEM NUTRITION AI. Interpreta il comando alimentare senza calcolare calorie o macronutrienti.
+Non inventare alimenti, quantità o valori nutrizionali. Identifica soltanto ciò che l'utente ha scritto.
+La data selezionata è ${data.date}. I pasti ammessi sono breakfast, lunch, dinner, snacks.
+Azioni ammesse: add, copy_previous, update_quantity, delete.
+Per "stessa colazione di ieri" usa copy_previous. Per correzioni usa update_quantity. Se il pasto non è specificato, usa snacks.
+Unità ammesse: g, ml, piece. Stato ammesso: raw, cooked, unspecified.
+Rispondi esclusivamente con JSON valido, senza markdown:
+{"action":"add|copy_previous|update_quantity|delete","meal":"breakfast|lunch|dinner|snacks","items":[{"name":"...","quantity":0,"unit":"g|ml|piece","state":"raw|cooked|unspecified"}],"targetName":"","needsClarification":false,"question":""}
+Imposta needsClarification=true e una sola domanda breve solo quando manca una quantità indispensabile o il comando è realmente ambiguo.
+Alimenti già presenti nell'archivio personale o interno (usali per uniformare i nomi quando la corrispondenza è evidente): ${JSON.stringify(data.knownFoods)}
+Comando: ${data.text}`;
+}
+
+function nutritionOutputIsValid(value) {
+  return value && typeof value === "object" &&
+    ["add", "copy_previous", "update_quantity", "delete"].includes(value.action) &&
+    ["breakfast", "lunch", "dinner", "snacks"].includes(value.meal) &&
+    Array.isArray(value.items) && value.items.length <= 12 && value.items.every(item =>
+      item && typeof item.name === "string" && item.name.trim().length >= 1 && item.name.length <= 100 &&
+      Number.isFinite(Number(item.quantity)) && Number(item.quantity) >= 0 && Number(item.quantity) <= 5000 &&
+      ["g", "ml", "piece"].includes(item.unit) && ["raw", "cooked", "unspecified"].includes(item.state)) &&
+    typeof value.needsClarification === "boolean" && typeof (value.question || "") === "string" && (value.question || "").length <= 240;
 }
 
 async function askGemini(data, env, prompt = buildPrompt(data)) {
@@ -165,6 +216,26 @@ async function askGemini(data, env, prompt = buildPrompt(data)) {
   return { analysis, model };
 }
 
+async function askGeminiNutrition(data, env) {
+  const model = env.GEMINI_MODEL || DEFAULT_MODEL;
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+    body: JSON.stringify({ model, input: buildNutritionPrompt(data), generation_config: { thinking_level: "low", temperature: 0, max_output_tokens: 700 } }),
+    signal: AbortSignal.timeout(25_000)
+  });
+  if (!response.ok) throw new Error(`Gemini Nutrition ${response.status}: ${(await response.text()).replace(/\s+/g, " ").slice(0, 500)}`);
+  const result = await response.json();
+  const text = result?.steps?.find(step => step?.type === "model_output")?.content?.find(item => item?.type === "text")?.text;
+  if (!text) throw new Error("Risposta Nutrition AI vuota");
+  const interpretation = JSON.parse(text.replace(/^```json\s*|\s*```$/g, "").trim());
+  if (!nutritionOutputIsValid(interpretation)) throw new Error("Risposta Nutrition AI non valida");
+  interpretation.items = interpretation.items.map(item => ({ ...item, name: item.name.trim(), quantity: Number(item.quantity) }));
+  interpretation.targetName = typeof interpretation.targetName === "string" ? interpretation.targetName.trim().slice(0, 100) : "";
+  interpretation.question = (interpretation.question || "").trim();
+  return { interpretation, model };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
@@ -178,7 +249,7 @@ export default {
         ? new Response(null, { status: 204, headers: corsHeaders(origin) })
         : jsonResponse({ error: "Origin non consentita" }, 403, origin);
     }
-    if (!['/analyze', '/coach'].includes(url.pathname) || request.method !== "POST") {
+    if (!['/analyze', '/coach', '/nutrition/parse'].includes(url.pathname) || request.method !== "POST") {
       return jsonResponse({ error: "Endpoint non trovato" }, 404, origin);
     }
     if (origin !== ALLOWED_ORIGIN) return jsonResponse({ error: "Origin non consentita" }, 403, origin);
@@ -201,8 +272,9 @@ export default {
     let parsed;
     try { parsed = JSON.parse(rawBody); } catch { return jsonResponse({ error: "JSON non valido" }, 400, origin); }
     const isOverview = url.pathname === "/coach";
-    const data = isOverview ? validateOverviewPayload(parsed) : validatePayload(parsed);
-    if (!data) return jsonResponse({ error: "Dati allenamento non validi" }, 400, origin);
+    const isNutrition = url.pathname === "/nutrition/parse";
+    const data = isNutrition ? validateNutritionPayload(parsed) : isOverview ? validateOverviewPayload(parsed) : validatePayload(parsed);
+    if (!data) return jsonResponse({ error: "Dati non validi" }, 400, origin);
     if (!env.GEMINI_API_KEY) return jsonResponse({ error: "AI non configurata" }, 503, origin);
 
     const hash = await sha256(JSON.stringify(data));
@@ -212,6 +284,12 @@ export default {
     if (cached) return jsonResponse({ ...(await cached.json()), cached: true }, 200, origin);
 
     try {
+      if (isNutrition) {
+        const result = await askGeminiNutrition(data, env);
+        const payload = { source: "gemini", model: result.model, interpretation: result.interpretation };
+        await cache.put(cacheKey, new Response(JSON.stringify(payload), { headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_SECONDS}` } }));
+        return jsonResponse(payload, 200, origin);
+      }
       const result = await askGemini(data, env, isOverview ? buildOverviewPrompt(data) : buildPrompt(data));
       const payload = { source: "gemini", model: result.model, analysis: result.analysis };
       const cacheResponse = new Response(JSON.stringify(payload), {

@@ -129,6 +129,9 @@ textarea.inp{resize:vertical;min-height:60px}
 .overload-tip{font-size:10px;color:var(--legs);font-weight:700;background:#a8ff4711;border:1px solid #a8ff4733;border-radius:5px;padding:3px 9px;margin-top:5px;display:inline-block}
 .ai-coach-panel{margin-top:9px;padding:11px 12px;background:linear-gradient(135deg,#071426,#0b2544);border:1px solid #43d9ff66;box-shadow:inset 0 0 18px #168cff16;clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}
 .ai-coach-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.ai-coach-title{font-size:11px;font-weight:950;color:var(--a2);letter-spacing:1.5px}.ai-coach-source{font-size:8px;color:var(--mut);letter-spacing:.7px;text-transform:uppercase}.ai-coach-status{display:inline-block;font-size:9px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:#020711;background:var(--a2);padding:3px 7px;border-radius:4px;margin-bottom:7px}.ai-coach-summary{font-size:11px;color:var(--txt);line-height:1.45}.ai-coach-insights{margin:7px 0;padding-left:17px;color:var(--mut);font-size:10px;line-height:1.45}.ai-coach-advice{font-size:10px;color:var(--legs);border-top:1px solid #43d9ff22;padding-top:7px;line-height:1.45}.ai-coach-loading{font-size:10px;color:var(--mut);line-height:1.45}
+.nutrition-shell{--nut-bg:#081827;--nut-card:#102539;--nut-card2:#10283b;--nut-border:#2a6386;--nut-blue:#70d9ff;--nut-text:#f2f9ff;--nut-muted:#9ab9cc;background:var(--nut-bg);border:1px solid var(--nut-border);border-radius:18px;padding:16px;margin-bottom:14px;color:var(--nut-text)}
+.nutrition-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}.nutrition-kicker{color:var(--nut-blue);font-size:11px;font-weight:900;letter-spacing:1px}.nutrition-title{font-size:24px;font-weight:900;margin-top:3px}.nutrition-date{width:100%;background:#0b1d2d;border:1px solid #45627a;border-radius:24px;color:var(--nut-text);font-size:16px;padding:11px 14px;margin-top:7px;color-scheme:dark}.nutrition-summary,.nutrition-meal,.nutrition-add,.nutrition-weight{background:var(--nut-card);border:1px solid #17364e;border-radius:14px;padding:13px;margin-bottom:12px}.nutrition-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}.nutrition-summary-value{font-size:18px;font-weight:900;color:var(--nut-text);font-variant-numeric:tabular-nums}.nutrition-summary-label{font-size:10px;color:var(--nut-blue);letter-spacing:.6px;margin-bottom:5px}.nutrition-meal-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.nutrition-meal-title{font-size:18px;font-weight:850}.nutrition-food{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:10px 0;border-top:1px solid #2a638655}.nutrition-food-name{font-size:14px;font-weight:800}.nutrition-food-meta{font-size:11px;color:var(--nut-muted);margin-top:3px;line-height:1.4}.nutrition-icon-btn{border:0;background:none;color:var(--nut-muted);font-size:17px;padding:7px;cursor:pointer;touch-action:manipulation}.nutrition-ai-input{width:100%;min-height:100px;resize:vertical;background:#10283b;border:1px solid #45627a;border-radius:12px;color:var(--nut-text);font:inherit;font-size:16px;padding:12px;box-sizing:border-box}.nutrition-ai-btn{width:100%;margin-top:9px;border:0;border-radius:24px;background:#f2f5f7;color:#081018;font-size:15px;font-weight:850;padding:12px;cursor:pointer}.nutrition-ai-btn:disabled{opacity:.45}.nutrition-note{font-size:11px;color:var(--nut-muted);line-height:1.45}.nutrition-chip{display:inline-block;border-radius:12px;padding:3px 8px;background:#15364e;color:var(--nut-blue);font-size:10px;font-weight:800}.nutrition-weight-days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:9px 0}.nutrition-day{min-height:43px;border:1px solid #38546a;border-radius:8px;background:#172a3a;color:var(--nut-muted)}.nutrition-day.active{border-color:var(--nut-blue);color:var(--nut-blue);background:#0d2637}
+@media(max-width:390px){.nutrition-shell{padding:12px}.nutrition-summary-grid{gap:3px}.nutrition-summary-value{font-size:16px}.nutrition-title{font-size:22px}.tab-btn{font-size:9px!important}}
 .vol-bar{background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .system-hero{background:linear-gradient(135deg,#0b2544,#061120 58%,#0d2744);border:1px solid #43d9ff66;border-radius:0;padding:14px;margin-bottom:12px;box-shadow:0 0 0 1px #168cff22,0 0 26px #43d9ff33,0 18px 48px #000b;position:relative;overflow:hidden;clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px)}
 .system-hero:before{content:"";position:absolute;inset:2px;border:1px solid #168cff88;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);pointer-events:none}
@@ -343,6 +346,7 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('history')"><span class="ico" aria-hidden="true">📅</span>Storico</button>
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('progress')"><span class="ico" aria-hidden="true">📈</span>Progressi</button>
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('coach')"><span class="ico" aria-hidden="true">🤖</span>AI Coach</button>
+    <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('nutrition')"><span class="ico" aria-hidden="true">🍽️</span>Nutrizione</button>
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('profile')"><span class="ico" aria-hidden="true">👤</span>Profilo</button>
   </div>
 </div>
@@ -577,6 +581,8 @@ let DB={
   prs:LS.get("ft_prs")||{},
   bodyWeights:LS.get("ft_bodyWeights")||[],
   mealTemplates:LS.get("ft_mealTemplates")||[],
+  nutritionFavorites:LS.get("ft_nutritionFavorites")||[],
+  weightReminder:LS.get("ft_weightReminder")||{days:[1,3,5],time:"07:00"},
   nutritionPrefs:LS.get("ft_nutritionPrefs")||{defaultWorkoutTime:"afternoon",defaultWorkoutClock:"17:30",snackEnabled:true,defaultSnackClock:"11:00",workoutTimes:{},workoutClocks:{},snackClocks:{}},
   dayOverrides:LS.get("ft_dayOverrides")||{},
   profile:LS.get("ft_profile")||{
@@ -1738,6 +1744,7 @@ let nutCat=Object.keys(FOOD_DB)[0];
 let nutSearch="";
 let nutGrams="";
 let nutQuery="";
+let nutritionSelectedDate=todayStr();
 let recTimerInterval=null;
 let recTimerEnd=0;
 let recoveryAudioContext=null;
@@ -1748,7 +1755,7 @@ function switchTab(tab){
   if(tab==="nutrition")nutDateOffset=0;
   currentTab=tab;
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{
-    const isActive=["log","history","progress","coach","profile"][i]===tab;
+    const isActive=["log","history","progress","coach","nutrition","profile"][i]===tab;
     b.classList.toggle("active",isActive);
     b.setAttribute("aria-selected",String(isActive));
   });
@@ -1763,6 +1770,7 @@ function render(){
   else if(currentTab==="history")renderHistory(c);
   else if(currentTab==="progress")renderProgress(c);
   else if(currentTab==="coach")renderGeneralCoach(c);
+  else if(currentTab==="nutrition")renderSystemNutrition(c);
   else if(currentTab==="profile")renderProfile(c);
   const ph=PHASES[DB.currentPhase-1];
   const phaseProgress=getPhaseProgress();
@@ -1950,7 +1958,12 @@ function buildGeneralCoachHistory(){
     });
   });
   const exercises=[...exerciseMap.values()].map(item=>({name:item.name,sessions:item.sessions.length,recent:item.sessions.slice(-4)})).sort((a,b)=>b.sessions-a.sessions||a.name.localeCompare(b.name)).slice(0,40);
-  return{totalSessions:entries.length,firstDate:entries[0]?.[0]||null,lastDate:entries.at(-1)?.[0]||null,workoutCounts,exercises};
+  const nutritionDates=Object.keys(DB.nutrition).filter(date=>(DB.nutrition[date]||[]).length).sort().slice(-30);
+  const nutritionTotal=nutritionDates.reduce((sum,date)=>{const total=nutritionTotals(getNutritionDay(date));return{kcal:sum.kcal+total.kcal,p:sum.p+total.p,c:sum.c+total.c,f:sum.f+total.f};},{kcal:0,p:0,c:0,f:0});
+  const divisor=nutritionDates.length||1;
+  const nutritionSummary={days:nutritionDates.length,avgKcal:Math.round(nutritionTotal.kcal/divisor),avgProtein:Math.round(nutritionTotal.p/divisor),avgCarbs:Math.round(nutritionTotal.c/divisor),avgFat:Math.round(nutritionTotal.f/divisor)};
+  const recentWeights=DB.bodyWeights.slice(-30);const weightSummary={entries:recentWeights.length,latest:recentWeights.at(-1)?.kg||null,earliest:recentWeights[0]?.kg||null};
+  return{totalSessions:entries.length,firstDate:entries[0]?.[0]||null,lastDate:entries.at(-1)?.[0]||null,workoutCounts,exercises,nutritionSummary,weightSummary};
 }
 function localGeneralCoach(history){
   if(!history.totalSessions)return{status:"dati_insufficienti",summary:"Non risultano ancora allenamenti completi nello storico.",insights:["Salva le sessioni per costruire una panoramica affidabile."],recommendation:"Registra kg, ripetizioni e RIR con continuità."};
@@ -3763,6 +3776,114 @@ function renderNutrition(c){
   }
 }
 
+// ── SYSTEM NUTRITION AI ───────────────────────────────────────────────
+const NUTRITION_MEALS={breakfast:"Colazione",lunch:"Pranzo",dinner:"Cena",snacks:"Spuntini"};
+function nutritionFoodCatalog(){
+  const foods=[];Object.values(FOOD_DB).forEach(group=>group.forEach(food=>foods.push({...food,source:"database"})));
+  (LS.get("ft_custom_foods")||[]).forEach(food=>foods.push({...food,source:"personal"}));
+  return foods;
+}
+function findNutritionFood(name){
+  const target=normalizeExerciseName(name);const foods=nutritionFoodCatalog();
+  return foods.find(food=>normalizeExerciseName(food.n)===target)||foods.find(food=>{const key=normalizeExerciseName(food.n);return key.length>3&&(target.includes(key)||key.includes(target));})||null;
+}
+function normalizeNutritionEntry(item,index=0){
+  if(item.amount!=null&&item.meal)return item;
+  const grams=Number(item.g)||0;
+  return{id:item.id||"legacy_"+index+"_"+Date.now(),meal:item.meal||"snacks",name:item.name||"Alimento",amount:grams,unit:"g",grams,state:"unspecified",kcal:Number(item.kcal)||0,p:Number(item.p)||0,c:Number(item.c)||0,f:Number(item.f)||0,estimated:!!item.estimated,source:item.source||"legacy",per100:grams?{kcal:(Number(item.kcal)||0)*100/grams,p:(Number(item.p)||0)*100/grams,c:(Number(item.c)||0)*100/grams,f:(Number(item.f)||0)*100/grams}:null};
+}
+function getNutritionDay(date){return(DB.nutrition[date]||[]).map(normalizeNutritionEntry);}
+function saveNutritionDay(date,items){DB.nutrition[date]=items;saveDB("nutrition");}
+function nutritionTotals(items){return items.reduce((total,item)=>({kcal:total.kcal+(Number(item.kcal)||0),p:total.p+(Number(item.p)||0),c:total.c+(Number(item.c)||0),f:total.f+(Number(item.f)||0)}),{kcal:0,p:0,c:0,f:0});}
+function exportNutritionData(){
+  const payload={nutrition:DB.nutrition,bodyWeights:DB.bodyWeights,customFoods:LS.get("ft_custom_foods")||[],exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="tracker-fitness-nutrizione-"+todayStr()+".json";document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);flash("✓ Diario nutrizionale esportato");
+}
+function createNutritionEntry(parsed,food,meal,per100Override){
+  const per100=per100Override||food&&{kcal:Number(food.kcal)||0,p:Number(food.p)||0,c:Number(food.c)||0,f:Number(food.f)||0};
+  if(!per100)return null;
+  let grams=Number(parsed.quantity)||0;
+  if(parsed.unit==="piece"){if(!food?.unitW)return null;grams*=food.unitW;}
+  const factor=grams/100;
+  return{id:"food_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7),meal,name:food?.n||parsed.name,amount:Number(parsed.quantity)||0,unit:parsed.unit,state:parsed.state||"unspecified",grams,per100,kcal:fmt(per100.kcal*factor),p:fmt(per100.p*factor),c:fmt(per100.c*factor),f:fmt(per100.f*factor),estimated:!food||food.source!=="personal",source:food?.source||"manual"};
+}
+function saveNutritionInterpretation(date,interpretation){
+  const current=getNutritionDay(date);const meal=interpretation.meal;
+  if(interpretation.action==="copy_previous"){
+    const previous=new Date(date+"T12:00:00");previous.setDate(previous.getDate()-1);const copied=getNutritionDay(localDateString(previous)).filter(item=>item.meal===meal).map(item=>({...item,id:"food_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}));
+    if(!copied.length){flash("Nessun pasto corrispondente nel giorno precedente","#ff6b47");return;}saveNutritionDay(date,[...current,...copied]);flash("✓ Pasto copiato dal giorno precedente");render();return;
+  }
+  const target=normalizeExerciseName(interpretation.targetName||interpretation.items[0]?.name||"");
+  if(interpretation.action==="delete"){
+    const next=current.filter(item=>!(item.meal===meal&&normalizeExerciseName(item.name).includes(target)));if(next.length===current.length){flash("Alimento non trovato","#ff6b47");return;}saveNutritionDay(date,next);render();return;
+  }
+  if(interpretation.action==="update_quantity"){
+    const parsed=interpretation.items[0];const idx=current.findIndex(item=>item.meal===meal&&normalizeExerciseName(item.name).includes(target));
+    if(idx<0){flash("Alimento da correggere non trovato","#ff6b47");return;}const old=current[idx],food=findNutritionFood(old.name),entry=createNutritionEntry(parsed,food,meal,old.per100);if(!entry){flash("Valori nutrizionali mancanti","#ff6b47");return;}current[idx]={...entry,id:old.id,name:old.name,source:old.source,estimated:old.estimated};saveNutritionDay(date,current);render();return;
+  }
+  openNutritionConfirmation(date,interpretation);
+}
+function openNutritionConfirmation(date,interpretation){
+  openModal("Conferma alimenti",body=>{
+    body.appendChild(el("div",{class:"nutrition-note",style:"margin-bottom:10px"},["Nutrition AI interpreta il testo; calorie e macro vengono calcolati localmente usando valori verificati."]));
+    const rows=[];
+    interpretation.items.forEach((parsed,index)=>{
+      const food=findNutritionFood(parsed.name);const wrap=el("div",{style:"background:#10283b;border:1px solid #2a6386;border-radius:10px;padding:10px;margin-bottom:9px"});
+      wrap.appendChild(el("div",{style:"font-weight:800;margin-bottom:4px"},[parsed.name+" · "+parsed.quantity+" "+parsed.unit]));
+      if(food)wrap.appendChild(el("div",{class:"nutrition-note"},["Archivio: "+food.n+" · "+food.kcal+" kcal/100 "+(parsed.unit==="ml"?"ml":"g")]));
+      else wrap.appendChild(el("div",{class:"nutrition-note",style:"color:#ffb36b;margin-bottom:7px"},["Prodotto non riconosciuto: inserisci i valori dell’etichetta per 100 g/ml."]));
+      const inputs={};
+      if(!food){const grid=el("div",{style:"display:grid;grid-template-columns:repeat(4,1fr);gap:5px"});[["kcal","Kcal"],["p","Pro"],["c","Carb"],["f","Grassi"]].forEach(([key,label])=>{const input=el("input",{class:"inp",type:"number",min:"0",placeholder:label});inputs[key]=input;grid.appendChild(input);});wrap.appendChild(grid);}
+      if(parsed.unit==="piece"&&!food?.unitW){inputs.unitW=el("input",{class:"inp",type:"number",min:"1",placeholder:"Grammi per pezzo",style:"margin-top:6px"});wrap.appendChild(inputs.unitW);}
+      rows.push({parsed,food,inputs});body.appendChild(wrap);
+    });
+    body.appendChild(el("button",{class:"btn btn-acc",style:"width:100%",onclick:()=>{
+      const entries=[];for(const row of rows){let per100=null,resolvedFood=row.food;if(!row.food){per100={kcal:Number(row.inputs.kcal.value),p:Number(row.inputs.p.value),c:Number(row.inputs.c.value),f:Number(row.inputs.f.value)};if(!Number.isFinite(per100.kcal)||per100.kcal<=0){flash("Inserisci almeno le kcal dei prodotti non riconosciuti","#ff6b47");return;}const unitW=row.inputs.unitW?Number(row.inputs.unitW.value):undefined;if(row.parsed.unit==="piece"&&(!unitW||unitW<=0)){flash("Inserisci i grammi di un pezzo","#ff6b47");return;}const custom=LS.get("ft_custom_foods")||[];const normalized=normalizeExerciseName(row.parsed.name);const saved={n:row.parsed.name,kcal:per100.kcal,p:per100.p||0,c:per100.c||0,f:per100.f||0,unitW,unitLabel:"pezzo",source:"personal"};const existing=custom.findIndex(x=>normalizeExerciseName(x.n)===normalized);if(existing>=0)custom[existing]=saved;else custom.push(saved);LS.set("ft_custom_foods",custom);resolvedFood=saved;}else if(row.parsed.unit==="piece"&&!row.food.unitW){const unitW=Number(row.inputs.unitW?.value);if(!unitW){flash("Inserisci i grammi di un pezzo","#ff6b47");return;}resolvedFood={...row.food,unitW};}const entry=createNutritionEntry(row.parsed,resolvedFood,interpretation.meal,per100);if(!entry){flash("Per le unità serve il peso di una porzione","#ff6b47");return;}entries.push(entry);}
+      saveNutritionDay(date,[...getNutritionDay(date),...entries]);closeModal();flash("✓ Pasto aggiunto");render();
+    }},["Conferma e salva"]));
+  });
+}
+async function analyzeNutritionText(date,text,button){
+  const clean=text.trim();if(clean.length<3){flash("Descrivi prima cosa hai mangiato","#ff6b47");return;}button.disabled=true;button.textContent="Analisi in corso…";
+  try{const response=await fetch(AI_COACH_ENDPOINT+"/nutrition/parse",{method:"POST",headers:{"Content-Type":"application/json","X-Client-Id":coachClientId()},body:JSON.stringify({text:clean,date,knownFoods:nutritionFoodCatalog().map(food=>food.n)}),signal:AbortSignal.timeout(28000)});if(!response.ok)throw new Error("Nutrition AI "+response.status);const data=await response.json();const result=data.interpretation;if(result.needsClarification){openModal("Serve un dettaglio",body=>{body.appendChild(el("div",{style:"font-size:14px;line-height:1.5;color:var(--txt);margin-bottom:10px"},[result.question||"Specifica quantità e prodotto."]));body.appendChild(el("button",{class:"btn",style:"width:100%",onclick:closeModal},["Torna al diario"]));});return;}saveNutritionInterpretation(date,result);}catch(error){console.warn(error);flash("AI non disponibile: usa Inserimento manuale","#ff6b47");}finally{button.disabled=false;button.textContent="Analizza con Nutrition AI";}
+}
+function openManualNutrition(date,meal="snacks",existing=null){
+  openModal(existing?"Modifica alimento":"Inserimento manuale",body=>{
+    const fields={};[["name","Nome","text"],["amount","Quantità","number"],["kcal","Kcal / 100","number"],["p","Proteine / 100","number"],["c","Carboidrati / 100","number"],["f","Grassi / 100","number"]].forEach(([key,label,type])=>{body.appendChild(el("div",{class:"nutrition-note",style:"margin:7px 0 3px"},[label]));const input=el("input",{class:"inp",type,step:"0.1"});fields[key]=input;body.appendChild(input);});
+    const selectGrid=el("div",{style:"display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px"});
+    const mealSelect=el("select",{class:"inp"});Object.entries(NUTRITION_MEALS).forEach(([key,label])=>mealSelect.appendChild(el("option",{value:key},[label])));mealSelect.value=existing?.meal||meal;
+    const unitSelect=el("select",{class:"inp"});[["g","grammi"],["ml","millilitri"]].forEach(([key,label])=>unitSelect.appendChild(el("option",{value:key},[label])));unitSelect.value=existing?.unit==="ml"?"ml":"g";
+    const stateSelect=el("select",{class:"inp"});[["unspecified","non indicato"],["raw","crudo"],["cooked","cotto"]].forEach(([key,label])=>stateSelect.appendChild(el("option",{value:key},[label])));stateSelect.value=existing?.state||"unspecified";
+    selectGrid.appendChild(mealSelect);selectGrid.appendChild(unitSelect);selectGrid.appendChild(stateSelect);body.appendChild(selectGrid);
+    if(existing){fields.name.value=existing.name;fields.amount.value=existing.amount;fields.kcal.value=existing.per100?.kcal||0;fields.p.value=existing.per100?.p||0;fields.c.value=existing.per100?.c||0;fields.f.value=existing.per100?.f||0;}
+    body.appendChild(el("button",{class:"btn btn-acc",style:"width:100%;margin-top:10px",onclick:()=>{const parsed={name:fields.name.value.trim(),quantity:Number(fields.amount.value),unit:unitSelect.value,state:stateSelect.value};const per100={kcal:Number(fields.kcal.value),p:Number(fields.p.value)||0,c:Number(fields.c.value)||0,f:Number(fields.f.value)||0};if(!parsed.name||!parsed.quantity||!per100.kcal){flash("Nome, quantità e kcal sono obbligatori","#ff6b47");return;}const entry=createNutritionEntry(parsed,null,mealSelect.value,per100);const items=getNutritionDay(date);if(existing){const idx=items.findIndex(item=>item.id===existing.id);items[idx]={...entry,id:existing.id};}else items.push(entry);saveNutritionDay(date,items);const custom=LS.get("ft_custom_foods")||[];const saved={n:parsed.name,kcal:per100.kcal,p:per100.p,c:per100.c,f:per100.f,source:"personal"};const idx=custom.findIndex(item=>normalizeExerciseName(item.n)===normalizeExerciseName(saved.n));if(idx>=0)custom[idx]=saved;else custom.push(saved);LS.set("ft_custom_foods",custom);closeModal();render();}},["Salva alimento"]));
+  });
+}
+function renderSystemNutrition(c){
+  const date=nutritionSelectedDate||todayStr();const items=getNutritionDay(date);const totals=nutritionTotals(items);const shell=el("div",{class:"nutrition-shell"});
+  const head=el("div",{class:"nutrition-head"},[el("div",{},[el("div",{class:"nutrition-kicker"},["SYSTEM NUTRITION"]),el("div",{class:"nutrition-title"},["Diario alimentare"])]),el("div",{style:"font-size:24px;color:#70d9ff"},["▣"])]);shell.appendChild(head);
+  shell.appendChild(el("div",{class:"nutrition-note"},["Seleziona la giornata"]));const dateInput=el("input",{class:"nutrition-date",type:"date",value:date,max:"2099-12-31"});dateInput.addEventListener("change",()=>{nutritionSelectedDate=dateInput.value||todayStr();render();});shell.appendChild(dateInput);
+  const summary=el("div",{class:"nutrition-summary",style:"margin-top:12px"});summary.appendChild(el("div",{class:"nutrition-kicker",style:"color:#9ab9cc;margin-bottom:10px"},["RIEPILOGO GIORNALIERO"]));const grid=el("div",{class:"nutrition-summary-grid"});[["KCAL",Math.round(totals.kcal)],["PRO",fmt(totals.p)+"g"],["CARB",fmt(totals.c)+"g"],["GRASSI",fmt(totals.f)+"g"]].forEach(([label,value])=>grid.appendChild(el("div",{},[el("div",{class:"nutrition-summary-label"},[label]),el("div",{class:"nutrition-summary-value"},[String(value)])])));summary.appendChild(grid);shell.appendChild(summary);
+  Object.entries(NUTRITION_MEALS).forEach(([meal,label])=>{const mealItems=items.filter(item=>item.meal===meal);const card=el("div",{class:"nutrition-meal"});const actions=el("div",{},[el("button",{class:"nutrition-icon-btn",title:"Salva tra i preferiti",onclick:()=>{if(!mealItems.length){flash("Il pasto è vuoto","#ff6b47");return;}const name=prompt("Nome del pasto preferito",label+" abituale");if(!name)return;DB.nutritionFavorites.push({id:"fav_"+Date.now(),name,meal,items:mealItems.map(item=>({...item}))});saveDB("nutritionFavorites");flash("✓ Pasto preferito salvato");}},["☆"]),el("button",{class:"nutrition-icon-btn",title:"Aggiungi manualmente",onclick:()=>openManualNutrition(date,meal)},["＋"])]);const mh=el("div",{class:"nutrition-meal-head"},[el("div",{class:"nutrition-meal-title"},[label]),actions]);card.appendChild(mh);if(!mealItems.length)card.appendChild(el("div",{class:"nutrition-note",style:"margin-top:6px"},["Nessun alimento registrato"]));mealItems.forEach(item=>{const stateLabel=item.state==="raw"?"crudo":item.state==="cooked"?"cotto":"stato non indicato";const row=el("div",{class:"nutrition-food"});row.appendChild(el("div",{},[el("div",{class:"nutrition-food-name"},[item.name]),el("div",{class:"nutrition-food-meta"},[`${item.amount} ${item.unit} · ${stateLabel} · ${Math.round(item.kcal)} kcal · P ${fmt(item.p)}g · C ${fmt(item.c)}g · G ${fmt(item.f)}g${item.estimated?" · stima":""}`])]));row.appendChild(el("div",{},[el("button",{class:"nutrition-icon-btn",title:"Modifica",onclick:()=>openManualNutrition(date,meal,item)},["✎"]),el("button",{class:"nutrition-icon-btn",title:"Elimina",onclick:()=>{if(!confirm("Eliminare "+item.name+"?"))return;saveNutritionDay(date,items.filter(current=>current.id!==item.id));render();}},["⌫"])]));card.appendChild(row);});shell.appendChild(card);});
+  const add=el("div",{class:"nutrition-add"});add.appendChild(el("div",{class:"nutrition-meal-title",style:"margin-bottom:8px;color:#70d9ff"},["✧ AGGIUNGI UN PASTO"]));const textarea=el("textarea",{class:"nutrition-ai-input",placeholder:"Es. A cena ho mangiato 200 g di salmone e 250 g di patate…"});add.appendChild(textarea);const aiButton=el("button",{class:"nutrition-ai-btn",onclick:()=>analyzeNutritionText(date,textarea.value,aiButton)},["Analizza con Nutrition AI"]);add.appendChild(aiButton);add.appendChild(el("button",{class:"btn",style:"width:100%;margin-top:7px",onclick:()=>openManualNutrition(date)},["Inserimento manuale"]));shell.appendChild(add);
+  if(DB.nutritionFavorites.length){const fav=el("div",{style:"display:flex;gap:6px;overflow-x:auto;margin:-4px 0 12px"});DB.nutritionFavorites.forEach(template=>fav.appendChild(el("button",{class:"btn btn-sm",style:"white-space:nowrap",onclick:()=>{saveNutritionDay(date,[...getNutritionDay(date),...template.items.map(item=>({...item,id:"food_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7),meal:template.meal}))]);flash("✓ Preferito aggiunto");render();}},["☆ "+template.name])));shell.appendChild(fav);}
+  const yesterday=new Date(date+"T12:00:00");yesterday.setDate(yesterday.getDate()-1);shell.appendChild(el("button",{class:"btn",style:"width:100%;margin-bottom:12px;border-color:#2a6386;color:#70d9ff",onclick:()=>{const previous=getNutritionDay(localDateString(yesterday));if(!previous.length){flash("Ieri non risultano pasti","#ff6b47");return;}if(!confirm("Copiare tutti i pasti di ieri in questa giornata?"))return;saveNutritionDay(date,[...items,...previous.map(item=>({...item,id:"food_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}))]);render();}},["Copia tutti i pasti di ieri"]));
+  shell.appendChild(el("button",{class:"btn",style:"width:100%;margin:-5px 0 12px",onclick:exportNutritionData},["Esporta diario nutrizionale"]));
+  renderNutritionWeight(shell);c.appendChild(shell);
+}
+function renderNutritionWeight(shell){
+  const card=el("div",{class:"nutrition-weight"});card.appendChild(el("div",{class:"nutrition-meal-title"},["Monitoraggio peso"]));card.appendChild(el("div",{class:"nutrition-note"},["Promemoria nell’app; una PWA su iPhone non può garantire avvisi se notifiche e app non sono abilitate."]));
+  const days=el("div",{class:"nutrition-weight-days"});
+  const labels=["D","L","M","M","G","V","S"];
+  labels.forEach((label,day)=>{
+    days.appendChild(el("button",{class:"nutrition-day"+(DB.weightReminder.days.includes(day)?" active":""),onclick:()=>{const set=new Set(DB.weightReminder.days);set.has(day)?set.delete(day):set.add(day);DB.weightReminder.days=[...set].sort();saveDB("weightReminder");render();}},[label]));
+  });
+  card.appendChild(days);
+  const controls=el("div",{style:"display:grid;grid-template-columns:1fr 1fr;gap:8px"});const weight=el("input",{class:"inp",type:"number",step:"0.1",placeholder:"Peso kg"});const time=el("input",{class:"inp",type:"time",value:DB.weightReminder.time||"07:00"});time.addEventListener("change",()=>{DB.weightReminder.time=time.value;saveDB("weightReminder");});controls.appendChild(weight);controls.appendChild(time);card.appendChild(controls);card.appendChild(el("button",{class:"btn",style:"width:100%;margin-top:8px",onclick:()=>{const kg=Number(weight.value);if(!kg||kg<30||kg>400){flash("Peso non valido","#ff6b47");return;}DB.bodyWeights=DB.bodyWeights.filter(x=>x.date!==todayStr());DB.bodyWeights.push({date:todayStr(),kg});DB.bodyWeights.sort((a,b)=>a.date.localeCompare(b.date));saveDB("bodyWeights");flash("✓ Peso salvato");render();}},["Salva peso di oggi"]));
+  if(DB.bodyWeights.length){const recent=DB.bodyWeights.slice(-30);card.appendChild(buildSparkline(recent.map(item=>({label:item.date.slice(5),v:Number(item.kg)})),"#70d9ff"));const weeks={};recent.forEach(item=>{const key=weekKey(item.date);(weeks[key]||(weeks[key]=[])).push(Number(item.kg));});const avgs=Object.entries(weeks).map(([key,values])=>({key,avg:values.reduce((a,b)=>a+b,0)/values.length}));const latest=avgs.at(-1),previous=avgs.at(-2);card.appendChild(el("div",{class:"nutrition-note",style:"margin-top:8px"},[`Media settimana: ${latest.avg.toFixed(1)} kg${previous?` · precedente ${previous.avg.toFixed(1)} kg · variazione ${(latest.avg-previous.avg).toFixed(1)} kg`:""}`]));}
+  shell.appendChild(card);
+}
+
 // ════════════════════════════════════════════════════════════════
 // BACKUP — ESPORTA / IMPORTA
 // ════════════════════════════════════════════════════════════════
@@ -3778,6 +3899,9 @@ function exportBackup(){
     prs:DB.prs,
     bodyWeights:DB.bodyWeights,
     mealTemplates:DB.mealTemplates,
+    nutritionFavorites:DB.nutritionFavorites,
+    weightReminder:DB.weightReminder,
+    customFoods:LS.get("ft_custom_foods")||[],
     nutritionPrefs:DB.nutritionPrefs,
     dayOverrides:DB.dayOverrides,
     profile:DB.profile,
@@ -3814,6 +3938,7 @@ function validateBackup(data){
   if(data.exDefs!==undefined&&!Array.isArray(data.exDefs))return "Definizioni esercizi non valide";
   if(data.dayOverrides!==undefined&&!isPlainObject(data.dayOverrides))return "Calendario non valido";
   if(data.bodyWeights!==undefined&&!Array.isArray(data.bodyWeights))return "Storico peso non valido";
+  if(data.nutritionFavorites!==undefined&&!Array.isArray(data.nutritionFavorites))return "Pasti preferiti non validi";
   const invalidEntry=Object.entries(data.entries).some(([date,entry])=>
     !/^\d{4}-\d{2}-\d{2}$/.test(date)||!isPlainObject(entry)||
     (entry.dayIdx!==undefined&&(!Number.isInteger(entry.dayIdx)||entry.dayIdx<0||entry.dayIdx>6))||
@@ -3842,6 +3967,9 @@ function importBackup(file){
       if(data.prs){DB.prs=data.prs;saveDB("prs");}
       if(data.bodyWeights){DB.bodyWeights=data.bodyWeights;saveDB("bodyWeights");}
       if(data.mealTemplates){DB.mealTemplates=data.mealTemplates;saveDB("mealTemplates");}
+      if(data.nutritionFavorites){DB.nutritionFavorites=data.nutritionFavorites;saveDB("nutritionFavorites");}
+      if(data.weightReminder){DB.weightReminder=data.weightReminder;saveDB("weightReminder");}
+      if(data.customFoods){LS.set("ft_custom_foods",data.customFoods);}
       if(data.nutritionPrefs){DB.nutritionPrefs=data.nutritionPrefs;saveDB("nutritionPrefs");}
       if(data.dayOverrides){DB.dayOverrides=data.dayOverrides;saveDB("dayOverrides");}
       if(data.profile){DB.profile=data.profile;saveDB("profile");}
@@ -4800,7 +4928,7 @@ if(document.modelContext?.registerTool){
   name:"navigate_fitness_section",description:"Apri una sezione di TrackerFitness senza modificare i dati di allenamento.",
   inputSchema:{type:"object",properties:{section:{type:"string",enum:["log","history","progress","profile"]}},required:["section"],additionalProperties:false},
   annotations:{readOnlyHint:false},
-  execute(input){if(!input||!["log","history","progress","coach","profile"].includes(input.section))throw new Error("Sezione non valida");switchTab(input.section);return {section:currentTab};}
+  execute(input){if(!input||!["log","history","progress","coach","nutrition","profile"].includes(input.section))throw new Error("Sezione non valida");switchTab(input.section);return {section:currentTab};}
  },{signal:lifecycle.signal})).catch(()=>{});}catch{}
  window.addEventListener("pagehide",()=>lifecycle.abort(),{once:true});
 }
