@@ -128,3 +128,36 @@ test("interpreta un pasto senza affidare i macro a Gemini", async () => {
     globalThis.caches = originalCaches;
   }
 });
+
+test("accetta una ricetta regionale scomposta senza nutrienti generati dal modello", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  globalThis.caches = { default: { match: async () => null, put: async () => undefined } };
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    steps: [{ type: "model_output", content: [{ type: "text", text: JSON.stringify({
+      action: "add", meal: "dinner", targetName: "", needsClarification: false, question: "",
+      items: [{
+        name: "Caponata siciliana", quantity: 0, unit: "g", state: "cooked", recognition: "recipe_estimate",
+        suggestedServingGrams: 250, suggestedUnitGrams: 0,
+        ingredients: [{ name: "Melanzane", grams: 150 }, { name: "Pomodori", grams: 50 }, { name: "Olio EVO", grams: 15 }],
+        assumptions: ["Porzione tipica con olio assorbito stimato"]
+      }]
+    }) }] }]
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+  try {
+    const response = await worker.fetch(new Request("https://worker.example/nutrition/parse", {
+      method: "POST",
+      headers: { Origin: "https://sitowebsicilia.github.io", "Content-Type": "application/json", "X-Client-Id": "nutrition_recipe_123456" },
+      body: JSON.stringify({ text: "A cena caponata siciliana", date: "2026-10-30", knownFoods: ["Melanzane", "Pomodori", "Olio EVO"] })
+    }), { GEMINI_API_KEY: "test", AI_RATE_LIMITER: { limit: async () => ({ success: true }) } });
+    const result = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(result.interpretation.items[0].recognition, "recipe_estimate");
+    assert.equal(result.interpretation.items[0].suggestedServingGrams, 250);
+    assert.equal(result.interpretation.items[0].ingredients.length, 3);
+    assert.equal("kcal" in result.interpretation.items[0], false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.caches = originalCaches;
+  }
+});

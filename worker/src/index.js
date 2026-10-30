@@ -160,15 +160,19 @@ ${JSON.stringify(data.history)}`;
 }
 
 function buildNutritionPrompt(data) {
-  return `Sei SYSTEM NUTRITION AI. Interpreta il comando alimentare senza calcolare calorie o macronutrienti.
-Non inventare alimenti, quantità o valori nutrizionali. Identifica soltanto ciò che l'utente ha scritto.
+  return `Sei SYSTEM NUTRITION AI. Interpreta il comando alimentare. Non calcolare calorie o macronutrienti: li calcolerà il codice.
+Prima uniforma il nome con l'archivio. Se il piatto non è nell'archivio ed è regionale, tradizionale, casalingo o composto, riconoscilo e descrivi una ricetta tipica usando ESCLUSIVAMENTE ingredienti presenti nell'archivio.
+Per una ricetta indica i grammi realistici di ogni ingrediente nella porzione consumata, includendo condimenti, panatura e olio assorbito quando pertinenti. Sono ipotesi modificabili, non dati certi.
+Se l'utente non indica il peso, proponi una porzione tipica in suggestedServingGrams e non fare domande. Chiedi un dettaglio soltanto se senza di esso non puoi identificare il piatto o la variante cambia radicalmente la stima.
+Se indica un numero di pezzi, mantieni unit=piece e proponi suggestedUnitGrams per il peso edibile di un pezzo.
 La data selezionata è ${data.date}. I pasti ammessi sono breakfast, lunch, dinner, snacks.
 Azioni ammesse: add, copy_previous, update_quantity, delete.
 Per "stessa colazione di ieri" usa copy_previous. Per correzioni usa update_quantity. Se il pasto non è specificato, usa snacks.
 Unità ammesse: g, ml, piece. Stato ammesso: raw, cooked, unspecified.
 Rispondi esclusivamente con JSON valido, senza markdown:
-{"action":"add|copy_previous|update_quantity|delete","meal":"breakfast|lunch|dinner|snacks","items":[{"name":"...","quantity":0,"unit":"g|ml|piece","state":"raw|cooked|unspecified"}],"targetName":"","needsClarification":false,"question":""}
-Imposta needsClarification=true e una sola domanda breve solo quando manca una quantità indispensabile o il comando è realmente ambiguo.
+{"action":"add|copy_previous|update_quantity|delete","meal":"breakfast|lunch|dinner|snacks","items":[{"name":"...","quantity":0,"unit":"g|ml|piece","state":"raw|cooked|unspecified","recognition":"catalog|recipe_estimate","suggestedServingGrams":0,"suggestedUnitGrams":0,"ingredients":[{"name":"nome esatto archivio","grams":0}],"assumptions":["ipotesi breve"]}],"targetName":"","needsClarification":false,"question":""}
+Per un alimento semplice o già archiviato usa recognition=catalog, ingredients=[] e valori suggeriti a 0. Per un piatto composto sconosciuto usa recipe_estimate, almeno 2 ingredienti e almeno una ipotesi.
+Imposta needsClarification=true e una sola domanda breve solo quando il dettaglio è davvero indispensabile.
 Alimenti già presenti nell'archivio personale o interno (usali per uniformare i nomi quando la corrispondenza è evidente): ${JSON.stringify(data.knownFoods)}
 Comando: ${data.text}`;
 }
@@ -180,7 +184,13 @@ function nutritionOutputIsValid(value) {
     Array.isArray(value.items) && value.items.length <= 12 && value.items.every(item =>
       item && typeof item.name === "string" && item.name.trim().length >= 1 && item.name.length <= 100 &&
       Number.isFinite(Number(item.quantity)) && Number(item.quantity) >= 0 && Number(item.quantity) <= 5000 &&
-      ["g", "ml", "piece"].includes(item.unit) && ["raw", "cooked", "unspecified"].includes(item.state)) &&
+      ["g", "ml", "piece"].includes(item.unit) && ["raw", "cooked", "unspecified"].includes(item.state) &&
+      ["catalog", "recipe_estimate"].includes(item.recognition || "catalog") &&
+      finiteNumber(item.suggestedServingGrams || 0, 0, 5000) !== undefined &&
+      finiteNumber(item.suggestedUnitGrams || 0, 0, 2000) !== undefined &&
+      Array.isArray(item.ingredients || []) && (item.ingredients || []).length <= 20 &&
+      (item.ingredients || []).every(ingredient => ingredient && typeof ingredient.name === "string" && ingredient.name.trim().length > 0 && ingredient.name.length <= 100 && finiteNumber(ingredient.grams, 0.1, 5000) !== undefined) &&
+      Array.isArray(item.assumptions || []) && (item.assumptions || []).length <= 8 && (item.assumptions || []).every(note => typeof note === "string" && note.length <= 180)) &&
     typeof value.needsClarification === "boolean" && typeof (value.question || "") === "string" && (value.question || "").length <= 240;
 }
 
@@ -230,7 +240,28 @@ async function askGeminiNutrition(data, env) {
   if (!text) throw new Error("Risposta Nutrition AI vuota");
   const interpretation = JSON.parse(text.replace(/^```json\s*|\s*```$/g, "").trim());
   if (!nutritionOutputIsValid(interpretation)) throw new Error("Risposta Nutrition AI non valida");
-  interpretation.items = interpretation.items.map(item => ({ ...item, name: item.name.trim(), quantity: Number(item.quantity) }));
+  interpretation.items = interpretation.items.map(item => ({
+    ...item,
+    name: item.name.trim(),
+    quantity: Number(item.quantity),
+    recognition: item.recognition || "catalog",
+    suggestedServingGrams: Number(item.suggestedServingGrams) || 0,
+    suggestedUnitGrams: Number(item.suggestedUnitGrams) || 0,
+    ingredients: (item.ingredients || []).map(ingredient => ({ name: ingredient.name.trim(), grams: Number(ingredient.grams) })),
+    assumptions: (item.assumptions || []).map(note => note.trim()).filter(Boolean)
+  }));
+  interpretation.items = interpretation.items.map(item => {
+    if (item.recognition !== "recipe_estimate" || item.unit !== "piece" || item.quantity <= 0 || item.suggestedUnitGrams <= 0 || !item.ingredients.length) return item;
+    const expectedGrams = item.quantity * item.suggestedUnitGrams;
+    const ingredientGrams = item.ingredients.reduce((sum, ingredient) => sum + ingredient.grams, 0);
+    if (ingredientGrams >= expectedGrams * 0.75 || ingredientGrams <= 0) return item;
+    const scale = expectedGrams / ingredientGrams;
+    return {
+      ...item,
+      ingredients: item.ingredients.map(ingredient => ({ ...ingredient, grams: Math.round(ingredient.grams * scale * 10) / 10 })),
+      assumptions: [...item.assumptions, `Ingredienti proporzionati a ${item.quantity} pezzi da circa ${item.suggestedUnitGrams} g ciascuno.`].slice(0, 8)
+    };
+  });
   interpretation.targetName = typeof interpretation.targetName === "string" ? interpretation.targetName.trim().slice(0, 100) : "";
   interpretation.question = (interpretation.question || "").trim();
   return { interpretation, model };
