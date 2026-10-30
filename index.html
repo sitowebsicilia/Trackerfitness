@@ -127,6 +127,8 @@ textarea.inp{resize:vertical;min-height:60px}
 .rskip{background:none;border:1px solid #235f89;color:var(--mut);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:800;-webkit-tap-highlight-color:transparent;text-transform:uppercase}
 .pr-badge{font-size:9px;font-weight:800;color:#ffd700;background:#ffd70022;border:1px solid #ffd70044;border-radius:4px;padding:1px 6px;letter-spacing:.3px}
 .overload-tip{font-size:10px;color:var(--legs);font-weight:700;background:#a8ff4711;border:1px solid #a8ff4733;border-radius:5px;padding:3px 9px;margin-top:5px;display:inline-block}
+.ai-coach-panel{margin-top:9px;padding:11px 12px;background:linear-gradient(135deg,#071426,#0b2544);border:1px solid #43d9ff66;box-shadow:inset 0 0 18px #168cff16;clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}
+.ai-coach-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px}.ai-coach-title{font-size:11px;font-weight:950;color:var(--a2);letter-spacing:1.5px}.ai-coach-source{font-size:8px;color:var(--mut);letter-spacing:.7px;text-transform:uppercase}.ai-coach-status{display:inline-block;font-size:9px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:#020711;background:var(--a2);padding:3px 7px;border-radius:4px;margin-bottom:7px}.ai-coach-summary{font-size:11px;color:var(--txt);line-height:1.45}.ai-coach-insights{margin:7px 0;padding-left:17px;color:var(--mut);font-size:10px;line-height:1.45}.ai-coach-advice{font-size:10px;color:var(--legs);border-top:1px solid #43d9ff22;padding-top:7px;line-height:1.45}.ai-coach-loading{font-size:10px;color:var(--mut);line-height:1.45}
 .vol-bar{background:var(--card);border:1px solid var(--brd);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .system-hero{background:linear-gradient(135deg,#0b2544,#061120 58%,#0d2744);border:1px solid #43d9ff66;border-radius:0;padding:14px;margin-bottom:12px;box-shadow:0 0 0 1px #168cff22,0 0 26px #43d9ff33,0 18px 48px #000b;position:relative;overflow:hidden;clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px)}
 .system-hero:before{content:"";position:absolute;inset:2px;border:1px solid #168cff88;clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);pointer-events:none}
@@ -1807,6 +1809,117 @@ function getLastSessionSets(wIdx,ei,exName,excludeDate){
   return null;
 }
 
+// ── SYSTEM AI COACH ──────────────────────────────────────────────────
+const AI_COACH_ENDPOINT="https://tracker-fitness-ai.manudj95.workers.dev";
+const AI_COACH_CACHE_KEY="ft_aiCoachCache_v1";
+const aiCoachInFlight=new Map();
+
+function parseCoachNumber(value,min,max){
+  if(value===null||value===undefined||String(value).trim()==="")return null;
+  const text=String(value).trim().replace(",",".");
+  const range=text.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/);
+  const number=range?(Number(range[1])+Number(range[2]))/2:Number(text);
+  return Number.isFinite(number)&&number>=min&&number<=max?number:null;
+}
+function getCoachSessions(exName,throughDate){
+  const target=normalizeExerciseName(exName);
+  return Object.entries(DB.entries)
+    .filter(([date,entry])=>date<=throughDate&&!entry.skipped&&Array.isArray(entry.sets))
+    .map(([date,entry])=>({date,sets:entry.sets.filter(set=>{
+      const name=set.exName||entry.exercises?.[set.ei]?.n;
+      return name&&normalizeExerciseName(name)===target;
+    }).map(set=>({
+      kg:parseCoachNumber(set.kg,0,1000),
+      reps:parseCoachNumber(set.reps,0,1000),
+      rir:parseCoachNumber(set.rir,0,10),
+      note:String(set.note||"").trim().slice(0,180)
+    })).filter(set=>set.kg!==null||set.reps!==null||set.rir!==null)}))
+    .filter(session=>session.sets.length)
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .slice(-6);
+}
+function coachSignature(exercise,sessions){
+  const input=JSON.stringify({exercise:normalizeExerciseName(exercise),sessions});
+  let hash=2166136261;
+  for(let i=0;i<input.length;i++){hash^=input.charCodeAt(i);hash=Math.imul(hash,16777619);}
+  return "v1_"+(hash>>>0).toString(16);
+}
+function getCoachCache(){return LS.get(AI_COACH_CACHE_KEY)||{};}
+function cacheCoachAnalysis(signature,result){
+  const cache=getCoachCache();
+  cache[signature]={...result,savedAt:Date.now()};
+  const trimmed=Object.entries(cache).sort((a,b)=>(b[1].savedAt||0)-(a[1].savedAt||0)).slice(0,40);
+  LS.set(AI_COACH_CACHE_KEY,Object.fromEntries(trimmed));
+}
+function summarizeCoachSession(session){
+  const valid=session.sets.filter(set=>set.kg!==null&&set.reps!==null);
+  const best=valid.reduce((max,set)=>Math.max(max,set.kg*(1+set.reps/30)),0);
+  const volume=valid.reduce((sum,set)=>sum+set.kg*set.reps,0);
+  const rirs=session.sets.map(set=>set.rir).filter(Number.isFinite);
+  return{best,volume,avgRir:rirs.length?rirs.reduce((a,b)=>a+b,0)/rirs.length:null};
+}
+function localCoachAnalysis(sessions){
+  if(sessions.length<4)return{status:"dati_insufficienti",summary:"Servono almeno 4 sessioni registrate per un confronto affidabile.",insights:["Continua a salvare kg, ripetizioni e RIR al termine dell’esercizio."],recommendation:"Mantieni l’esecuzione coerente: il coach si attiverà automaticamente appena avrà uno storico sufficiente."};
+  const summaries=sessions.map(summarizeCoachSession);
+  const previous=summaries[summaries.length-2],latest=summaries.at(-1);
+  const recent=summaries.slice(-3);
+  const performanceDelta=previous.best?((latest.best-previous.best)/previous.best)*100:0;
+  const rirDelta=latest.avgRir!==null&&previous.avgRir!==null?latest.avgRir-previous.avgRir:0;
+  const spread=Math.max(...recent.map(s=>s.best))-Math.min(...recent.map(s=>s.best));
+  const relativeSpread=recent[0].best?spread/recent[0].best*100:0;
+  let status="stabile",summary="Prestazione stabile: carico e ripetizioni restano coerenti.";
+  if(performanceDelta>=2){status="miglioramento";summary="Miglioramento reale: il rendimento è salito rispetto alla sessione precedente.";}
+  else if(performanceDelta>-1&&rirDelta>=.75){status="margine_rir";summary="Rendimento simile con maggiore margine RIR: buona gestione della fatica.";}
+  else if(relativeSpread<1.5&&recent.length===3){status="stallo";summary="Le ultime tre prestazioni sono quasi identiche: possibile fase di stallo da confermare.";}
+  const insights=[`Confrontate ${sessions.length} sessioni, dalla ${sessions[0].date} alla ${sessions.at(-1).date}.`];
+  if(latest.avgRir!==null)insights.push(`RIR medio più recente: ${latest.avgRir.toFixed(1)}${previous.avgRir!==null?` (prima ${previous.avgRir.toFixed(1)})`:""}.`);
+  insights.push(`Volume più recente: ${Math.round(latest.volume)} kg·rep.`);
+  const recommendation=status==="miglioramento"
+    ?"Conferma prima il risultato con tecnica e RIR comparabili; valuta la progressione solo dopo un’altra prestazione solida."
+    :status==="margine_rir"
+      ?"Mantieni il carico e prova a consolidare ripetizioni e tecnica sfruttando il margine disponibile."
+      :status==="stallo"
+        ?"Non aumentare automaticamente il carico: controlla recupero, tecnica e qualità delle ripetizioni nella prossima sessione."
+        :"Ripeti il carico cercando una prestazione pulita e confrontabile; progredisci solo se ripetizioni e RIR lo confermano.";
+  return{status,summary,insights,recommendation};
+}
+function renderCoachResult(panel,result){
+  const analysis=result.analysis;
+  const labels={miglioramento:"Miglioramento reale",stabile:"Prestazione stabile",margine_rir:"Maggiore margine RIR",stallo:"Possibile stallo",dati_insufficienti:"Storico insufficiente"};
+  panel.innerHTML="";
+  const head=el("div",{class:"ai-coach-head"},[el("div",{class:"ai-coach-title"},["SYSTEM AI COACH"]),el("div",{class:"ai-coach-source"},[result.source==="gemini"?"Analisi Gemini":"Analisi locale"])]);
+  panel.appendChild(head);
+  panel.appendChild(el("div",{class:"ai-coach-status"},[labels[analysis.status]||"Analisi"]));
+  panel.appendChild(el("div",{class:"ai-coach-summary"},[analysis.summary]));
+  const list=el("ul",{class:"ai-coach-insights"});analysis.insights.forEach(item=>list.appendChild(el("li",{},[item])));panel.appendChild(list);
+  panel.appendChild(el("div",{class:"ai-coach-advice"},["PROSSIMA SESSIONE · "+analysis.recommendation]));
+}
+function coachClientId(){
+  let id=localStorage.getItem("ft_aiClientId");
+  if(!/^[A-Za-z0-9_-]{16,80}$/.test(id||"")){id="tf_"+(crypto.randomUUID?crypto.randomUUID().replaceAll("-",""):Date.now().toString(36)+Math.random().toString(36).slice(2));localStorage.setItem("ft_aiClientId",id);}
+  return id;
+}
+async function runAiCoach(panel,exercise,date){
+  const sessions=getCoachSessions(exercise,date);
+  const signature=coachSignature(exercise,sessions);
+  const cached=getCoachCache()[signature];
+  if(cached){renderCoachResult(panel,cached);return;}
+  if(sessions.length<4||!AI_COACH_ENDPOINT){const result={source:"local",analysis:localCoachAnalysis(sessions)};cacheCoachAnalysis(signature,result);renderCoachResult(panel,result);return;}
+  if(aiCoachInFlight.has(signature)){renderCoachResult(panel,await aiCoachInFlight.get(signature));return;}
+  panel.innerHTML='<div class="ai-coach-head"><div class="ai-coach-title">SYSTEM AI COACH</div><div class="ai-coach-source">Analisi in corso</div></div><div class="ai-coach-loading">Confronto le ultime '+sessions.length+' sessioni…</div>';
+  const request=(async()=>{
+    try{
+      const response=await fetch(AI_COACH_ENDPOINT+"/analyze",{method:"POST",headers:{"Content-Type":"application/json","X-Client-Id":coachClientId()},body:JSON.stringify({exercise,sessions}),signal:AbortSignal.timeout(28000)});
+      if(!response.ok)throw new Error("AI "+response.status);
+      const data=await response.json();
+      if(!data.analysis)throw new Error("Risposta AI non valida");
+      return{source:"gemini",analysis:data.analysis};
+    }catch(error){console.warn("AI Coach: uso analisi locale",error);return{source:"local",analysis:localCoachAnalysis(sessions)};}
+  })();
+  aiCoachInFlight.set(signature,request);
+  try{const result=await request;cacheCoachAnalysis(signature,result);renderCoachResult(panel,result);}finally{aiCoachInFlight.delete(signature);}
+}
+
 function getExerciseGroup(ex){
   const txt=((ex.muscles||"")+" "+(ex.n||"")+" "+(ex.note||"")).toLowerCase();
   if(/mobilit|stretch|cardio|tapis|recupero|foam|rotazioni|gatto|hinge|sleeper|propriocezione|adduzione scapole|tilt posteriore/.test(txt))return "skip";
@@ -2297,6 +2410,13 @@ function renderLog(c){
       body.appendChild(preloadBtn);
     }
     const exerciseComplete=mySets.length>=(parseInt(ex.sets)||1);
+    const coachPanel=exerciseComplete&&!isCardio?el("div",{class:"ai-coach-panel"}):null;
+    if(coachPanel){
+      const coachSessions=getCoachSessions(ex.n,dk);
+      const cachedCoach=getCoachCache()[coachSignature(ex.n,coachSessions)];
+      if(cachedCoach)renderCoachResult(coachPanel,cachedCoach);
+      else coachPanel.innerHTML='<div class="ai-coach-head"><div class="ai-coach-title">SYSTEM AI COACH</div><div class="ai-coach-source">Pronto</div></div><div class="ai-coach-loading">Salva l’esercizio completato per analizzare le ultime sessioni.</div>';
+    }
     const saveExerciseBtn=el("button",{
       class:"btn"+(exerciseComplete?" btn-acc":""),
       style:"margin-top:8px;font-size:12px;padding:10px 14px;width:100%;border-color:var(--legs);color:"+(exerciseComplete?"#020711":"var(--legs)")+";opacity:"+(mySets.length?"1":".45"),
@@ -2306,9 +2426,11 @@ function renderLog(c){
         saveExerciseBtn.textContent="✓ Esercizio salvato";
         saveExerciseBtn.style.background="var(--legs)";
         saveExerciseBtn.style.color="#020711";
+        if(exerciseComplete&&coachPanel)runAiCoach(coachPanel,ex.n,dk);
       }
     },[exerciseComplete?"💾 Salva esercizio completato":"💾 Salva progressi esercizio ("+mySets.length+"/"+ex.sets+")"]);
     body.appendChild(saveExerciseBtn);
+    if(coachPanel)body.appendChild(coachPanel);
     card.appendChild(body);
     c.appendChild(card);
   });
