@@ -342,6 +342,7 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
     <button class="tab-btn active" role="tab" aria-selected="true" onclick="switchTab('log')"><span class="ico" aria-hidden="true">📋</span>Log</button>
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('history')"><span class="ico" aria-hidden="true">📅</span>Storico</button>
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('progress')"><span class="ico" aria-hidden="true">📈</span>Progressi</button>
+    <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('coach')"><span class="ico" aria-hidden="true">🤖</span>AI Coach</button>
     <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('profile')"><span class="ico" aria-hidden="true">👤</span>Profilo</button>
   </div>
 </div>
@@ -1747,7 +1748,7 @@ function switchTab(tab){
   if(tab==="nutrition")nutDateOffset=0;
   currentTab=tab;
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{
-    const isActive=["log","history","progress","profile"][i]===tab;
+    const isActive=["log","history","progress","coach","profile"][i]===tab;
     b.classList.toggle("active",isActive);
     b.setAttribute("aria-selected",String(isActive));
   });
@@ -1761,6 +1762,7 @@ function render(){
   if(currentTab==="log")renderLog(c);
   else if(currentTab==="history")renderHistory(c);
   else if(currentTab==="progress")renderProgress(c);
+  else if(currentTab==="coach")renderGeneralCoach(c);
   else if(currentTab==="profile")renderProfile(c);
   const ph=PHASES[DB.currentPhase-1];
   const phaseProgress=getPhaseProgress();
@@ -1918,6 +1920,84 @@ async function runAiCoach(panel,exercise,date){
   })();
   aiCoachInFlight.set(signature,request);
   try{const result=await request;cacheCoachAnalysis(signature,result);renderCoachResult(panel,result);}finally{aiCoachInFlight.delete(signature);}
+}
+
+const GENERAL_COACH_CACHE_KEY="ft_generalCoachCache_v1";
+const generalCoachInFlight=new Map();
+function buildGeneralCoachHistory(){
+  const entries=Object.entries(DB.entries).filter(([,entry])=>!entry.skipped&&Array.isArray(entry.sets)&&entry.sets.length).sort((a,b)=>a[0].localeCompare(b[0]));
+  const workoutCounts={};
+  const exerciseMap=new Map();
+  entries.forEach(([date,entry])=>{
+    const workout=DEF_DAYS[entry.dayIdx]?.name||"ALTRO";
+    workoutCounts[workout]=(workoutCounts[workout]||0)+1;
+    const sessionExercises=new Map();
+    entry.sets.forEach(set=>{
+      const name=String(set.exName||entry.exercises?.[set.ei]?.n||"").trim();
+      if(!name)return;
+      const kg=parseCoachNumber(set.kg,0,1000),reps=parseCoachNumber(set.reps,0,1000),rir=parseCoachNumber(set.rir,0,10);
+      if(kg===null&&reps===null&&rir===null)return;
+      const key=normalizeExerciseName(name);
+      if(!sessionExercises.has(key))sessionExercises.set(key,{name,sets:[]});
+      sessionExercises.get(key).sets.push({kg,reps,rir});
+    });
+    sessionExercises.forEach((value,key)=>{
+      if(!exerciseMap.has(key))exerciseMap.set(key,{name:value.name,sessions:[]});
+      const weighted=value.sets.filter(set=>set.kg!==null&&set.reps!==null);
+      const best=weighted.sort((a,b)=>(b.kg*(1+b.reps/30))-(a.kg*(1+a.reps/30)))[0]||value.sets[0];
+      const rirs=value.sets.map(set=>set.rir).filter(Number.isFinite);
+      exerciseMap.get(key).sessions.push({date,bestKg:best.kg,bestReps:best.reps,avgRir:rirs.length?Number((rirs.reduce((a,b)=>a+b,0)/rirs.length).toFixed(1)):null});
+    });
+  });
+  const exercises=[...exerciseMap.values()].map(item=>({name:item.name,sessions:item.sessions.length,recent:item.sessions.slice(-4)})).sort((a,b)=>b.sessions-a.sessions||a.name.localeCompare(b.name)).slice(0,40);
+  return{totalSessions:entries.length,firstDate:entries[0]?.[0]||null,lastDate:entries.at(-1)?.[0]||null,workoutCounts,exercises};
+}
+function localGeneralCoach(history){
+  if(!history.totalSessions)return{status:"dati_insufficienti",summary:"Non risultano ancora allenamenti completi nello storico.",insights:["Salva le sessioni per costruire una panoramica affidabile."],recommendation:"Registra kg, ripetizioni e RIR con continuità."};
+  const counts=Object.entries(history.workoutCounts).sort((a,b)=>b[1]-a[1]);
+  const tracked=history.exercises.filter(ex=>ex.sessions>=4);
+  return{status:tracked.length?"stabile":"dati_insufficienti",summary:`Storico disponibile: ${history.totalSessions} allenamenti dal ${history.firstDate} al ${history.lastDate}.`,insights:[counts.length?"Distribuzione: "+counts.map(([name,count])=>name+" "+count).join(" · "):"Distribuzione non disponibile.",`${tracked.length} esercizi hanno almeno 4 sessioni confrontabili.`,`${history.exercises.length} esercizi con dati numerici registrati.`],recommendation:tracked.length?"Chiedi al coach di analizzare un allenamento, un esercizio o un possibile stallo specifico.":"Continua a registrare le sessioni: servono almeno quattro rilevazioni per distinguere una tendenza reale."};
+}
+function generalCoachSignature(history,question){return coachSignature("storico:"+String(question||"").toLowerCase().trim(),[history]);}
+async function requestGeneralCoach(panel,history,question){
+  const cleanQuestion=String(question||"").trim().slice(0,300);
+  const signature=generalCoachSignature(history,cleanQuestion);
+  const cache=LS.get(GENERAL_COACH_CACHE_KEY)||{};
+  if(cache[signature]){renderCoachResult(panel,cache[signature]);return;}
+  if(generalCoachInFlight.has(signature)){renderCoachResult(panel,await generalCoachInFlight.get(signature));return;}
+  panel.innerHTML='<div class="ai-coach-head"><div class="ai-coach-title">SYSTEM AI COACH</div><div class="ai-coach-source">Analisi storico</div></div><div class="ai-coach-loading">Analizzo tutti gli allenamenti registrati…</div>';
+  const request=(async()=>{
+    try{
+      const response=await fetch(AI_COACH_ENDPOINT+"/coach",{method:"POST",headers:{"Content-Type":"application/json","X-Client-Id":coachClientId()},body:JSON.stringify({question:cleanQuestion,history}),signal:AbortSignal.timeout(28000)});
+      if(!response.ok)throw new Error("AI "+response.status);
+      const data=await response.json();if(!data.analysis)throw new Error("Risposta AI non valida");
+      return{source:"gemini",analysis:data.analysis};
+    }catch(error){console.warn("AI Coach generale: uso analisi locale",error);return{source:"local",analysis:localGeneralCoach(history)};}
+  })();
+  generalCoachInFlight.set(signature,request);
+  try{
+    const result=await request;
+    const updated=LS.get(GENERAL_COACH_CACHE_KEY)||{};updated[signature]={...result,savedAt:Date.now()};
+    LS.set(GENERAL_COACH_CACHE_KEY,Object.fromEntries(Object.entries(updated).sort((a,b)=>(b[1].savedAt||0)-(a[1].savedAt||0)).slice(0,20)));
+    renderCoachResult(panel,result);
+  }finally{generalCoachInFlight.delete(signature);}
+}
+function renderGeneralCoach(c){
+  const history=buildGeneralCoachHistory();
+  const hero=el("div",{class:"system-hero"});
+  hero.appendChild(el("div",{class:"system-kicker"},["ANALISI COMPLETA DELLO STORICO"]));
+  hero.appendChild(el("div",{class:"system-title"},["SYSTEM AI COACH"]));
+  hero.appendChild(el("div",{class:"system-subtitle"},["Allenamenti, esercizi, carichi, ripetizioni e RIR"]));
+  const stats=el("div",{class:"system-stat-grid"});
+  [[history.totalSessions,"SESSIONI"],[history.exercises.length,"ESERCIZI"],[Object.keys(history.workoutCounts).length,"SCHEDE"],[history.firstDate?history.firstDate.slice(5):"—","DAL"]].forEach(([value,label])=>stats.appendChild(el("div",{class:"system-stat"},[el("div",{class:"value"},[String(value)]),el("div",{class:"label"},[label])])));hero.appendChild(stats);c.appendChild(hero);
+  const panel=el("div",{class:"ai-coach-panel",style:"margin-bottom:12px"});
+  renderCoachResult(panel,{source:"local",analysis:localGeneralCoach(history)});c.appendChild(panel);
+  const analyze=el("button",{class:"btn btn-acc",style:"width:100%;padding:11px;margin-bottom:12px",onclick:()=>requestGeneralCoach(panel,history,"")},["✦ Analizza tutto lo storico"]);c.appendChild(analyze);
+  const questionCard=hudPanel([],"quest","padding:14px;margin-bottom:12px");
+  questionCard.appendChild(el("div",{class:"system-kicker"},["CHIEDI AL COACH"]));
+  questionCard.appendChild(el("div",{style:"font-size:11px;color:var(--mut);margin-bottom:8px"},["Esempio: Come sta andando il Pull? Su quali esercizi sono fermo?"]));
+  const input=el("textarea",{class:"inp",rows:"3",maxlength:"300",placeholder:"Scrivi una domanda sul tuo storico…",style:"resize:vertical;margin-bottom:8px"});questionCard.appendChild(input);
+  questionCard.appendChild(el("button",{class:"btn",style:"width:100%;border-color:var(--a2);color:var(--a2)",onclick:()=>{if(!input.value.trim()){flash("Scrivi prima una domanda","#ff6b47");return;}requestGeneralCoach(panel,history,input.value);}},["Invia domanda all’AI Coach"]));c.appendChild(questionCard);
 }
 
 function getExerciseGroup(ex){
@@ -4720,7 +4800,7 @@ if(document.modelContext?.registerTool){
   name:"navigate_fitness_section",description:"Apri una sezione di TrackerFitness senza modificare i dati di allenamento.",
   inputSchema:{type:"object",properties:{section:{type:"string",enum:["log","history","progress","profile"]}},required:["section"],additionalProperties:false},
   annotations:{readOnlyHint:false},
-  execute(input){if(!input||!["log","history","progress","profile"].includes(input.section))throw new Error("Sezione non valida");switchTab(input.section);return {section:currentTab};}
+  execute(input){if(!input||!["log","history","progress","coach","profile"].includes(input.section))throw new Error("Sezione non valida");switchTab(input.section);return {section:currentTab};}
  },{signal:lifecycle.signal})).catch(()=>{});}catch{}
  window.addEventListener("pagehide",()=>lifecycle.abort(),{once:true});
 }

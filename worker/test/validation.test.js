@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { validatePayload } from "../src/index.js";
+import worker, { validateOverviewPayload, validatePayload } from "../src/index.js";
 
 const validPayload = {
   exercise: "Lat Machine triangolo",
@@ -25,6 +25,21 @@ test("rifiuta valori fuori intervallo", () => {
   const payload = structuredClone(validPayload);
   payload.sessions[0].sets[0].rir = 20;
   assert.equal(validatePayload(payload), null);
+});
+
+test("valida il riepilogo dello storico generale", () => {
+  const result = validateOverviewPayload({
+    question: "Come sta andando il Pull?",
+    history: {
+      totalSessions: 12,
+      firstDate: "2026-09-01",
+      lastDate: "2026-10-20",
+      workoutCounts: { PULL: 4, PUSH: 4, "FULL BODY": 4 },
+      exercises: [{ name: "Lat Machine", sessions: 4, recent: [{ date: "2026-10-20", bestKg: 60, bestReps: 8, avgRir: 1 }] }]
+    }
+  });
+  assert.equal(result.question, "Come sta andando il Pull?");
+  assert.equal(result.history.totalSessions, 12);
 });
 
 test("blocca origini diverse da GitHub Pages", async () => {

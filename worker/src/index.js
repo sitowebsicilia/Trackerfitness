@@ -55,6 +55,42 @@ export function validatePayload(input) {
   return { version: 1, exercise: input.exercise.trim(), sessions };
 }
 
+export function validateOverviewPayload(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const question = typeof input.question === "string" ? input.question.trim().slice(0, 300) : "";
+  const history = input.history;
+  if (!history || typeof history !== "object" || Array.isArray(history)) return null;
+  const totalSessions = finiteNumber(history.totalSessions, 0, 5000);
+  if (totalSessions === undefined) return null;
+  const firstDate = /^\d{4}-\d{2}-\d{2}$/.test(history.firstDate || "") ? history.firstDate : null;
+  const lastDate = /^\d{4}-\d{2}-\d{2}$/.test(history.lastDate || "") ? history.lastDate : null;
+  const workoutCounts = {};
+  if (!history.workoutCounts || typeof history.workoutCounts !== "object" || Array.isArray(history.workoutCounts)) return null;
+  for (const [name, count] of Object.entries(history.workoutCounts).slice(0, 12)) {
+    const safeCount = finiteNumber(count, 0, 5000);
+    if (name.length > 40 || safeCount === undefined) return null;
+    workoutCounts[name] = safeCount;
+  }
+  if (!Array.isArray(history.exercises) || history.exercises.length > 40) return null;
+  const exercises = [];
+  for (const exercise of history.exercises) {
+    if (!exercise || typeof exercise.name !== "string" || exercise.name.trim().length < 2 || exercise.name.length > 100) return null;
+    const sessions = finiteNumber(exercise.sessions, 1, 5000);
+    if (sessions === undefined || !Array.isArray(exercise.recent) || exercise.recent.length > 4) return null;
+    const recent = exercise.recent.map(item => {
+      if (!item || !/^\d{4}-\d{2}-\d{2}$/.test(item.date || "")) return null;
+      const bestKg = finiteNumber(item.bestKg, 0, 1000, true);
+      const bestReps = finiteNumber(item.bestReps, 0, 1000, true);
+      const avgRir = finiteNumber(item.avgRir, 0, 10, true);
+      if (bestKg === undefined || bestReps === undefined || avgRir === undefined) return null;
+      return { date: item.date, bestKg, bestReps, avgRir };
+    });
+    if (recent.includes(null)) return null;
+    exercises.push({ name: exercise.name.trim(), sessions, recent });
+  }
+  return { version: 1, question, history: { totalSessions, firstDate, lastDate, workoutCounts, exercises } };
+}
+
 function outputIsValid(value) {
   return value && typeof value === "object" &&
     ["miglioramento", "stabile", "margine_rir", "stallo", "dati_insufficienti"].includes(value.status) &&
@@ -82,7 +118,22 @@ Dati, dal meno recente al più recente:
 ${JSON.stringify(data.sessions)}`;
 }
 
-async function askGemini(data, env) {
+function buildOverviewPrompt(data) {
+  const request = data.question
+    ? `Rispondi prima a questa domanda dell'utente: ${data.question}`
+    : "Fornisci una panoramica generale dello storico e indica le priorità più utili per le prossime sessioni.";
+  return `Sei SYSTEM AI COACH, un assistente prudente per l'analisi dello storico di allenamento.
+${request}
+Analizza frequenza, distribuzione degli allenamenti, kg, ripetizioni, RIR, miglioramenti, stabilità e possibili stalli usando solo il riepilogo fornito.
+Non suggerire automaticamente aumenti di carico. Non inventare dati e non formulare diagnosi mediche.
+Se una conclusione non è supportata dallo storico, dichiaralo chiaramente. Scrivi in italiano in modo concreto e breve.
+Rispondi esclusivamente con JSON valido, senza markdown, nel formato:
+{"status":"miglioramento|stabile|margine_rir|stallo|dati_insufficienti","summary":"...","insights":["..."],"recommendation":"..."}
+Riepilogo completo disponibile nell'app:
+${JSON.stringify(data.history)}`;
+}
+
+async function askGemini(data, env, prompt = buildPrompt(data)) {
   const model = env.GEMINI_MODEL || DEFAULT_MODEL;
   const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions";
   const response = await fetch(endpoint, {
@@ -93,7 +144,7 @@ async function askGemini(data, env) {
     },
     body: JSON.stringify({
       model,
-      input: buildPrompt(data),
+      input: prompt,
       generation_config: { thinking_level: "low", temperature: 0.2, max_output_tokens: 500 }
     }),
     signal: AbortSignal.timeout(25_000)
@@ -127,7 +178,7 @@ export default {
         ? new Response(null, { status: 204, headers: corsHeaders(origin) })
         : jsonResponse({ error: "Origin non consentita" }, 403, origin);
     }
-    if (url.pathname !== "/analyze" || request.method !== "POST") {
+    if (!['/analyze', '/coach'].includes(url.pathname) || request.method !== "POST") {
       return jsonResponse({ error: "Endpoint non trovato" }, 404, origin);
     }
     if (origin !== ALLOWED_ORIGIN) return jsonResponse({ error: "Origin non consentita" }, 403, origin);
@@ -149,7 +200,8 @@ export default {
     if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) return jsonResponse({ error: "Richiesta troppo grande" }, 413, origin);
     let parsed;
     try { parsed = JSON.parse(rawBody); } catch { return jsonResponse({ error: "JSON non valido" }, 400, origin); }
-    const data = validatePayload(parsed);
+    const isOverview = url.pathname === "/coach";
+    const data = isOverview ? validateOverviewPayload(parsed) : validatePayload(parsed);
     if (!data) return jsonResponse({ error: "Dati allenamento non validi" }, 400, origin);
     if (!env.GEMINI_API_KEY) return jsonResponse({ error: "AI non configurata" }, 503, origin);
 
@@ -160,7 +212,7 @@ export default {
     if (cached) return jsonResponse({ ...(await cached.json()), cached: true }, 200, origin);
 
     try {
-      const result = await askGemini(data, env);
+      const result = await askGemini(data, env, isOverview ? buildOverviewPrompt(data) : buildPrompt(data));
       const payload = { source: "gemini", model: result.model, analysis: result.analysis };
       const cacheResponse = new Response(JSON.stringify(payload), {
         headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_SECONDS}` }
