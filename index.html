@@ -1437,7 +1437,6 @@ function previewShiftWorkoutToNextDay(dateStr,wIdx,days=5){
     wIdx:REST_WORKOUT_IDX,
     note:"oggi riposo"
   });
-  let carry=wIdx;
   const cursor=new Date(start);
   for(let i=1;i<=days;i++){
     cursor.setDate(cursor.getDate()+1);
@@ -1445,30 +1444,23 @@ function previewShiftWorkoutToNextDay(dateStr,wIdx,days=5){
     lines.push({
       date:dStr,
       label:cursor.toLocaleDateString("it-IT",{weekday:"short",day:"numeric",month:"short"}),
-      wIdx:carry,
+      wIdx:i===1?wIdx:getBaseWorkoutIdxForDate(dStr),
       note:i===1?"allenamento spostato":""
     });
-    carry=getBaseWorkoutIdxForDate(dStr);
   }
   return lines;
 }
 
 function shiftWorkoutToNextDay(dateStr,wIdx,reason){
-  DB.entries[dateStr]={dayIdx:wIdx,skipped:true,skipReason:reason,ts:new Date().toISOString()};
+  const target=new Date(dateStr+"T12:00:00");target.setDate(target.getDate()+1);const targetDate=localDateString(target);
+  DB.entries[dateStr]={dayIdx:wIdx,skipped:true,postponed:true,postponedTo:targetDate,skipReason:reason||"Allenamento rinviato",ts:new Date().toISOString()};
   DB.dayOverrides[dateStr]=REST_WORKOUT_IDX;
-  let carry=wIdx;
-  const cursor=new Date(dateStr+"T12:00:00");
-  for(let i=1;i<=21;i++){
-    cursor.setDate(cursor.getDate()+1);
-    const dStr=localDateString(cursor);
-    const completed=DB.entries[dStr];
-    if(completed&&!completed.skipped)break;
-    const base=getBaseWorkoutIdxForDate(dStr);
-    DB.dayOverrides[dStr]=carry;
-    carry=base;
-  }
+  // Sposta soltanto questa seduta: i giorni successivi mantengono la loro
+  // programmazione originale (es. domenica riposo e lunedì Full Body).
+  if(!DB.entries[targetDate]||DB.entries[targetDate].skipped)DB.dayOverrides[targetDate]=wIdx;
   saveDB("entries");
   saveDB("dayOverrides");
+  return targetDate;
 }
 
 // ── UTILS ──────────────────────────────────────────────────────────────
@@ -2590,20 +2582,20 @@ function renderSkipSection(c,dk,wIdx){
   if(DB.entries[dk]&&DB.entries[dk].skipped){
     const skipBox=el("div",{style:"background:#ff6b4722;border:1px solid #ff6b4766;border-radius:10px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center"});
     skipBox.appendChild(el("div",{},[
-      el("div",{style:"font-weight:800;font-size:12px;color:var(--a3);letter-spacing:.3px"},["🚫 ALLENAMENTO SALTATO"]),
-      el("div",{style:"font-size:11px;color:var(--mut);margin-top:3px"},[DB.entries[dk].skipReason||"Motivo non specificato"])
+      el("div",{style:"font-weight:800;font-size:12px;color:var(--legs);letter-spacing:.3px"},[DB.entries[dk].postponed?"↺ ALLENAMENTO RINVIATO":"PAUSA REGISTRATA"]),
+      el("div",{style:"font-size:11px;color:var(--mut);margin-top:3px"},[(DB.entries[dk].skipReason||"Allenamento rinviato")+(DB.entries[dk].postponedTo?" · recupero "+DB.entries[dk].postponedTo.split("-").reverse().join("/"):"")])
     ]));
     const skipActions=el("div",{style:"display:flex;gap:6px;flex-shrink:0"});
-    skipActions.appendChild(el("button",{class:"btn btn-sm",style:"border-color:var(--legs);color:var(--legs)",onclick:()=>{
+    if(!DB.entries[dk].postponed)skipActions.appendChild(el("button",{class:"btn btn-sm",style:"border-color:var(--legs);color:var(--legs)",onclick:()=>{
       const skipped=DB.entries[dk];
       shiftWorkoutToNextDay(dk,skipped.dayIdx,skipped.skipReason||"Allenamento spostato");
       render();flash("↺ "+DEF_DAYS[skipped.dayIdx].name+" spostato al giorno successivo","#a8ff47");
-    }},["↺ Sposta"]));
+    }},["↺ Rinvia"]));
     skipActions.appendChild(el("button",{class:"btn btn-sm",onclick:()=>{delete DB.entries[dk];saveDB("entries");delete DB.dayOverrides[dk];saveDB("dayOverrides");render();flash("Annullato","#9b47ff");}},["Annulla"]));
     skipBox.appendChild(skipActions);
     skipWrap.appendChild(skipBox);
   } else if(!DB.entries[dk]){
-    skipWrap.appendChild(el("button",{class:"btn",style:"width:100%;border-color:var(--a3);color:var(--a3);padding:11px;font-size:13px",onclick:()=>openSkipModal(dk,wIdx)},["🚫 Salta allenamento — segna il motivo"]));
+    skipWrap.appendChild(el("button",{class:"btn",style:"width:100%;border-color:var(--legs);color:var(--legs);padding:11px;font-size:13px",onclick:()=>openSkipModal(dk,wIdx)},["↺ Non riesci oggi? Rinvia l’allenamento"]));
   }
   c.appendChild(skipWrap);
 }
@@ -3026,7 +3018,7 @@ function openChangeWorkoutModal(dk){
 }
 
 function openSkipModal(dk,wIdx){
-  openModal("Perché salti l'allenamento?",body=>{
+  openModal("Rinvia allenamento",body=>{
     const reasons=["🏥 Infortunio / Dolore","💼 Lavoro / Turno di servizio","😴 Stanchezza eccessiva","🏠 Impegni personali","✈️ Fuori sede / Trasferta","🤒 Malattia","📝 Altro motivo"];
     let selBtn=null;
     const grp=el("div",{style:"display:flex;flex-direction:column;gap:6px;margin-bottom:12px"});
@@ -3046,13 +3038,13 @@ function openSkipModal(dk,wIdx){
     // Separatore opzioni
     body.appendChild(el("div",{style:"font-size:10px;color:var(--mut);font-weight:700;letter-spacing:.5px;margin-bottom:8px"},["COSA VUOI FARE?"]));
 
-    const getReason=()=>ci.value.trim()||(selBtn?selBtn.textContent:"");
+    const getReason=()=>ci.value.trim()||(selBtn?selBtn.textContent:"")||"Allenamento rinviato per impegno";
 
     // ── Opzione principale: sposta questa seduta al giorno successivo ──
     const shiftPreview=previewShiftWorkoutToNextDay(dk,wIdx,5);
     const absorbCard=el("div",{style:"background:#a8ff4709;border:2px solid #a8ff4766;border-radius:10px;padding:12px;margin-bottom:10px"});
     absorbCard.appendChild(el("div",{style:"font-size:10px;font-weight:700;color:var(--legs);letter-spacing:.5px;margin-bottom:6px"},["↺ PASSA QUESTO ALLENAMENTO AL GIORNO SUCCESSIVO"]));
-    absorbCard.appendChild(el("div",{style:"font-size:11px;color:var(--mut);margin-bottom:6px"},["Usa questa opzione se non vuoi perdere la seduta. Oggi diventa riposo e tutta la sequenza dei prossimi giorni scala di un giorno."]));
+    absorbCard.appendChild(el("div",{style:"font-size:11px;color:var(--mut);margin-bottom:6px"},["Oggi diventa riposo e questa seduta passa a domani. Domenica, lunedì e gli altri giorni mantengono la loro programmazione."]));
     const preview=el("div",{style:"background:#0d0f14;border-radius:6px;padding:8px 10px;margin-bottom:10px"});
     preview.appendChild(el("div",{style:"font-size:9px;color:var(--legs);font-weight:700;letter-spacing:.5px;margin-bottom:4px"},["NUOVA DISTRIBUZIONE:"]));
     shiftPreview.forEach((item,idx)=>{
@@ -3066,23 +3058,12 @@ function openSkipModal(dk,wIdx){
     absorbCard.appendChild(preview);
     absorbCard.appendChild(el("button",{class:"btn",style:"width:100%;background:var(--legs);color:#000;border-color:var(--legs);font-weight:800;padding:12px;font-size:14px;touch-action:manipulation",onclick:()=>{
       const reason=getReason();
-      if(!reason){flash("Seleziona o scrivi un motivo","#ff6b47");return;}
       shiftWorkoutToNextDay(dk,wIdx,reason);
       flash("↺ "+DEF_DAYS[wIdx].name+" spostato al giorno successivo","#a8ff47");
       closeModal();logSets=[];logNote="";logView="plan";render();$("content").scrollTop=0;
     }},["Sì, passa "+DEF_DAYS[wIdx].name+" al giorno successivo"]));
     body.appendChild(absorbCard);
 
-    // Salta davvero senza recuperare
-    body.appendChild(el("button",{class:"btn btn-danger",style:"width:100%;touch-action:manipulation;margin-bottom:6px;padding:10px",onclick:()=>{
-      const reason=getReason();
-      if(!reason){flash("Seleziona o scrivi un motivo","#ff6b47");return;}
-      DB.entries[dk]={dayIdx:wIdx,skipped:true,skipReason:reason,ts:new Date().toISOString()};
-      saveDB("entries");
-      DB.dayOverrides[dk]=REST_WORKOUT_IDX;saveDB("dayOverrides");
-      flash("🚫 Saltato senza recuperare: oggi riposo","#ff6b47");
-      closeModal();logSets=[];logNote="";logView="plan";render();$("content").scrollTop=0;
-    }},["🚫 No, saltalo davvero senza recuperare"]));
     body.appendChild(el("button",{class:"btn",style:"width:100%;",onclick:closeModal},["Annulla"]));
   });
 }
@@ -4650,7 +4631,7 @@ table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}th{backg
   body+=`<table><tr><th>Data</th><th>Seduta</th><th>Serie</th><th>Volume</th><th>Note</th></tr>`;
   weekDates.forEach(d=>{
     const e=DB.entries[d],day=DEF_DAYS[e.dayIdx]||DEF_DAYS[0];
-    body+=`<tr><td>${escHtml(d)}</td><td>${escHtml(e.skipped?"Riposo / saltato":day.name)}</td><td>${e.skipped?"—":(e.sets||[]).length}</td><td>${e.skipped?"—":Math.round(calcSessionVolume(e.sets||[])).toLocaleString("it")+" kg"}</td><td>${escHtml(e.skipped?(e.skipReason||"Allenamento saltato"):(e.notes||""))}</td></tr>`;
+    body+=`<tr><td>${escHtml(d)}</td><td>${escHtml(e.skipped?(e.postponed?"Allenamento rinviato":"Riposo registrato"):day.name)}</td><td>${e.skipped?"—":(e.sets||[]).length}</td><td>${e.skipped?"—":Math.round(calcSessionVolume(e.sets||[])).toLocaleString("it")+" kg"}</td><td>${escHtml(e.skipped?((e.skipReason||"Allenamento rinviato")+(e.postponedTo?" · recupero "+e.postponedTo:"")):(e.notes||""))}</td></tr>`;
   });
   body+=`</table></div>`;
   body+=`<div class="section"><div class="section-title">Dettaglio serie</div>`;
