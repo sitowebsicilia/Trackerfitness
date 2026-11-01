@@ -115,6 +115,13 @@ export function validateNutritionPayload(input) {
   return { version: 1, text: input.text.trim(), date: input.date, knownFoods };
 }
 
+export function validateNutritionImportPayload(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  if (typeof input.text !== "string" || input.text.trim().length < 20 || input.text.length > 6000) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date || "")) return null;
+  return { version: 1, text: input.text.trim(), date: input.date };
+}
+
 function outputIsValid(value) {
   return value && typeof value === "object" &&
     ["miglioramento", "stabile", "margine_rir", "stallo", "dati_insufficienti"].includes(value.status) &&
@@ -200,6 +207,33 @@ function nutritionOutputIsValid(value) {
     typeof value.needsClarification === "boolean" && typeof (value.question || "") === "string" && (value.question || "").length <= 240;
 }
 
+function buildNutritionImportPrompt(data) {
+  return `Sei un estrattore di dati nutrizionali. Il testo seguente è una risposta copiata da un'altra AI (Gemini, ChatGPT o simile) e contiene valori GIÀ CALCOLATI per la quantità consumata.
+Non ricalcolare, correggere, stimare o sostituire alcun valore. Estrai esclusivamente i totali della porzione consumata, non i valori per 100 g/ml.
+Se il testo contiene sia valori per 100 sia totali della porzione, usa i totali della porzione. Se contiene più prodotti, crea un item per ciascuno. Non creare item per righe di totale generale.
+I pasti ammessi sono breakfast, lunch, dinner, snacks; se non è indicato usa snacks. Unità ammesse: g, ml, piece.
+sourceQuality: label soltanto se il testo dichiara esplicitamente valori da etichetta; online se dichiara una fonte/sito; altrimenti ai_estimate.
+Un numero non presente deve essere 0. Non confondere quantità del prodotto e grammi di un macronutriente.
+Rispondi esclusivamente con JSON valido, senza markdown:
+{"meal":"breakfast|lunch|dinner|snacks","items":[{"name":"...","brand":"","kind":"food|beverage","quantity":0,"unit":"g|ml|piece","kcal":0,"protein":0,"carbs":0,"sugars":0,"fat":0,"fiber":0,"salt":0,"sourceQuality":"label|online|ai_estimate","notes":""}],"warnings":["..."]}
+Testo da importare:
+${data.text}`;
+}
+
+function nutritionImportOutputIsValid(value) {
+  const numberOk = (number, max) => finiteNumber(number, 0, max) !== undefined;
+  return value && typeof value === "object" && ["breakfast", "lunch", "dinner", "snacks"].includes(value.meal) &&
+    Array.isArray(value.items) && value.items.length >= 1 && value.items.length <= 20 && value.items.every(item =>
+      item && typeof item.name === "string" && item.name.trim().length >= 2 && item.name.length <= 140 &&
+      typeof (item.brand || "") === "string" && (item.brand || "").length <= 100 &&
+      ["food", "beverage"].includes(item.kind) && ["g", "ml", "piece"].includes(item.unit) &&
+      numberOk(item.quantity, 10000) && numberOk(item.kcal, 10000) && numberOk(item.protein, 1000) &&
+      numberOk(item.carbs, 2000) && numberOk(item.sugars, 2000) && numberOk(item.fat, 1000) &&
+      numberOk(item.fiber, 1000) && numberOk(item.salt, 1000) &&
+      ["label", "online", "ai_estimate"].includes(item.sourceQuality) && typeof (item.notes || "") === "string" && (item.notes || "").length <= 240) &&
+    Array.isArray(value.warnings || []) && (value.warnings || []).length <= 6 && (value.warnings || []).every(note => typeof note === "string" && note.length <= 240);
+}
+
 async function askGemini(data, env, prompt = buildPrompt(data)) {
   const model = env.GEMINI_MODEL || DEFAULT_MODEL;
   const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -276,6 +310,30 @@ async function askGeminiNutrition(data, env) {
   return { interpretation, model };
 }
 
+async function askGeminiNutritionImport(data, env) {
+  const model = env.GEMINI_MODEL || DEFAULT_MODEL;
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+    body: JSON.stringify({ model, input: buildNutritionImportPrompt(data), generation_config: { thinking_level: "low", temperature: 0, max_output_tokens: 1000 } }),
+    signal: AbortSignal.timeout(25_000)
+  });
+  if (!response.ok) throw new Error(`Gemini Nutrition Import ${response.status}: ${(await response.text()).replace(/\s+/g, " ").slice(0, 500)}`);
+  const result = await response.json();
+  const text = result?.steps?.find(step => step?.type === "model_output")?.content?.find(item => item?.type === "text")?.text;
+  if (!text) throw new Error("Risposta importazione Nutrition AI vuota");
+  const imported = JSON.parse(text.replace(/^```json\s*|\s*```$/g, "").trim());
+  if (!nutritionImportOutputIsValid(imported)) throw new Error("Risposta importazione Nutrition AI non valida");
+  imported.items = imported.items.map(item => ({
+    ...item,
+    name: item.name.trim(), brand: (item.brand || "").trim(), quantity: Number(item.quantity), kcal: Number(item.kcal),
+    protein: Number(item.protein), carbs: Number(item.carbs), sugars: Number(item.sugars), fat: Number(item.fat),
+    fiber: Number(item.fiber), salt: Number(item.salt), notes: (item.notes || "").trim()
+  }));
+  imported.warnings = (imported.warnings || []).map(note => note.trim()).filter(Boolean);
+  return { imported, model };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
@@ -289,7 +347,7 @@ export default {
         ? new Response(null, { status: 204, headers: corsHeaders(origin) })
         : jsonResponse({ error: "Origin non consentita" }, 403, origin);
     }
-    if (!['/analyze', '/coach', '/nutrition/parse'].includes(url.pathname) || request.method !== "POST") {
+    if (!["/analyze", "/coach", "/nutrition/parse", "/nutrition/import"].includes(url.pathname) || request.method !== "POST") {
       return jsonResponse({ error: "Endpoint non trovato" }, 404, origin);
     }
     if (origin !== ALLOWED_ORIGIN) return jsonResponse({ error: "Origin non consentita" }, 403, origin);
@@ -313,7 +371,8 @@ export default {
     try { parsed = JSON.parse(rawBody); } catch { return jsonResponse({ error: "JSON non valido" }, 400, origin); }
     const isOverview = url.pathname === "/coach";
     const isNutrition = url.pathname === "/nutrition/parse";
-    const data = isNutrition ? validateNutritionPayload(parsed) : isOverview ? validateOverviewPayload(parsed) : validatePayload(parsed);
+    const isNutritionImport = url.pathname === "/nutrition/import";
+    const data = isNutritionImport ? validateNutritionImportPayload(parsed) : isNutrition ? validateNutritionPayload(parsed) : isOverview ? validateOverviewPayload(parsed) : validatePayload(parsed);
     if (!data) return jsonResponse({ error: "Dati non validi" }, 400, origin);
     if (!env.GEMINI_API_KEY) return jsonResponse({ error: "AI non configurata" }, 503, origin);
 
@@ -324,6 +383,12 @@ export default {
     if (cached) return jsonResponse({ ...(await cached.json()), cached: true }, 200, origin);
 
     try {
+      if (isNutritionImport) {
+        const result = await askGeminiNutritionImport(data, env);
+        const payload = { source: "gemini", model: result.model, imported: result.imported };
+        await cache.put(cacheKey, new Response(JSON.stringify(payload), { headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_SECONDS}` } }));
+        return jsonResponse(payload, 200, origin);
+      }
       if (isNutrition) {
         const result = await askGeminiNutrition(data, env);
         const payload = { source: "gemini", model: result.model, interpretation: result.interpretation };

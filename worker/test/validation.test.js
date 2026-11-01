@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { validateNutritionPayload, validateOverviewPayload, validatePayload } from "../src/index.js";
+import worker, { validateNutritionImportPayload, validateNutritionPayload, validateOverviewPayload, validatePayload } from "../src/index.js";
 
 const validPayload = {
   exercise: "Lat Machine triangolo",
@@ -51,6 +51,12 @@ test("valida e limita il comando Nutrition AI", () => {
   assert.equal(result.date, "2026-10-30");
   assert.deepEqual(result.knownFoods, ["Riso basmati", "Merluzzo"]);
   assert.equal(validateNutritionPayload({ text: "x", date: "ieri" }), null);
+});
+
+test("valida un testo nutrizionale copiato da un'altra AI", () => {
+  const result = validateNutritionImportPayload({ text: "Prodotto Lidl 200 g: 150 kcal, proteine 20 g, carboidrati 10 g, grassi 3 g.", date: "2026-11-01" });
+  assert.equal(result.date, "2026-11-01");
+  assert.equal(validateNutritionImportPayload({ text: "troppo corto", date: "2026-11-01" }), null);
 });
 
 test("blocca origini diverse da GitHub Pages", async () => {
@@ -184,6 +190,29 @@ test("interpreta insieme alimento e bevanda alcolica senza generare nutrienti", 
     assert.equal(result.interpretation.items[1].kind, "beverage");
     assert.equal(result.interpretation.items[1].unit, "ml");
     assert.equal("kcal" in result.interpretation.items[1], false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.caches = originalCaches;
+  }
+});
+
+test("estrae i totali di porzione da una risposta AI senza ricalcolarli", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  globalThis.caches = { default: { match: async () => null, put: async () => undefined } };
+  globalThis.fetch = async () => new Response(JSON.stringify({ steps: [{ type: "model_output", content: [{ type: "text", text: JSON.stringify({
+    meal: "snacks", warnings: [], items: [{ name: "High Protein Pudding Vaniglia", brand: "Milbona", kind: "food", quantity: 200, unit: "g", kcal: 152, protein: 20, carbs: 11, sugars: 8, fat: 3, fiber: 0, salt: 0.4, sourceQuality: "ai_estimate", notes: "Valori totali della confezione" }]
+  }) }] }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+  try {
+    const response = await worker.fetch(new Request("https://worker.example/nutrition/import", {
+      method: "POST", headers: { Origin: "https://sitowebsicilia.github.io", "Content-Type": "application/json", "X-Client-Id": "nutrition_import_123456" },
+      body: JSON.stringify({ text: "Milbona High Protein Pudding Vaniglia, confezione 200 g. Totale: 152 kcal, P 20 g, C 11 g, zuccheri 8 g, grassi 3 g, sale 0,4 g.", date: "2026-11-01" })
+    }), { GEMINI_API_KEY: "test", AI_RATE_LIMITER: { limit: async () => ({ success: true }) } });
+    const result = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(result.imported.items[0].quantity, 200);
+    assert.equal(result.imported.items[0].kcal, 152);
+    assert.equal(result.imported.items[0].protein, 20);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.caches = originalCaches;
