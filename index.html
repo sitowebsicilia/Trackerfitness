@@ -1111,6 +1111,15 @@ function calcTransitionRest(curEx,nextEx){
   return 90;                                    // 1:30 → isolamento muscoli diversi
 }
 function prepareRecoverySound(){
+  if(!recoveryAudioElement){
+    recoveryAudioElement=new Audio(createRecoveryBeepDataUrl());
+    recoveryAudioElement.preload="auto";
+  }
+  // Lo sblocco avviene nel gesto che avvia il timer. HTMLAudio tende a
+  // rimanere autorizzato più stabilmente di AudioContext sui browser mobili.
+  recoveryAudioElement.volume=0.001;
+  const unlock=recoveryAudioElement.play();
+  if(unlock&&typeof unlock.then==="function")unlock.then(()=>{recoveryAudioElement.pause();recoveryAudioElement.currentTime=0;recoveryAudioElement.volume=1;}).catch(()=>{});
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)return;
   if(!recoveryAudioContext)recoveryAudioContext=new AudioContextClass();
@@ -1126,8 +1135,14 @@ function prepareRecoverySound(){
   unlockOscillator.start();
   unlockOscillator.stop(recoveryAudioContext.currentTime+0.02);
 }
-function playRecoverySound(){
-  prepareRecoverySound();
+function createRecoveryBeepDataUrl(){
+  const rate=22050,duration=1,samples=Math.floor(rate*duration),dataSize=samples*2,buffer=new ArrayBuffer(44+dataSize),view=new DataView(buffer);
+  const write=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));};
+  write(0,"RIFF");view.setUint32(4,36+dataSize,true);write(8,"WAVE");write(12,"fmt ");view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);write(36,"data");view.setUint32(40,dataSize,true);
+  for(let i=0;i<samples;i++){const t=i/rate;let value=0;[0,.42].forEach(start=>{const local=t-start;if(local>=0&&local<.28){const fade=Math.min(1,local/.015,(.28-local)/.04);value+=Math.sin(2*Math.PI*1050*local)*.72*fade+Math.sin(2*Math.PI*2100*local)*.18*fade;}});view.setInt16(44+i*2,Math.max(-1,Math.min(1,value))*32767,true);}
+  const bytes=new Uint8Array(buffer);let binary="";for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));return"data:audio/wav;base64,"+btoa(binary);
+}
+function playRecoveryOscillator(){
   if(!recoveryAudioContext)return;
   const play=()=>{
     const now=recoveryAudioContext.currentTime;
@@ -1164,6 +1179,15 @@ function playRecoverySound(){
   };
   if(recoveryAudioContext.state==="suspended")recoveryAudioContext.resume().then(play).catch(()=>{});
   else play();
+}
+function playRecoverySound(){
+  if(recoveryAudioElement){
+    recoveryAudioElement.pause();recoveryAudioElement.currentTime=0;recoveryAudioElement.volume=1;
+    const playback=recoveryAudioElement.play();
+    if(playback&&typeof playback.catch==="function")playback.catch(()=>playRecoveryOscillator());
+    return;
+  }
+  playRecoveryOscillator();
 }
 function startRecoveryTimer(seconds,exName){
   stopRecoveryTimer();
@@ -1778,6 +1802,7 @@ let nutritionSelectedDate=todayStr();
 let recTimerInterval=null;
 let recTimerEnd=0;
 let recoveryAudioContext=null;
+let recoveryAudioElement=null;
 
 // ── TAB ────────────────────────────────────────────────────────────────
 function switchTab(tab){
@@ -2228,10 +2253,13 @@ function renderLog(c){
   const wIdx=getDayWorkoutIdx(logDayIdx,dk);
   const day=DEF_DAYS[wIdx];
   const exDefs=getExDefs(wIdx);
-  const saveSessionProgress=(message,finishSession=false)=>{
+  const saveSessionProgress=(message,finishSession=false,savedExerciseIndex=null)=>{
     const exercises=exDefs.map(ex=>({...ex}));
     const savedSets=logSets.map(set=>({...set,exName:exercises[set.ei]?.n||set.exName||""}));
-    DB.entries[dk]={dayIdx:wIdx,exercises,sets:savedSets,notes:logNote,ts:new Date().toISOString()};
+    const savedExercises=new Set(DB.entries[dk]?.savedExercises||[]);
+    if(savedExerciseIndex!==null)savedExercises.add(savedExerciseIndex);
+    if(finishSession)savedSets.forEach(set=>savedExercises.add(set.ei));
+    DB.entries[dk]={dayIdx:wIdx,exercises,sets:savedSets,savedExercises:[...savedExercises].sort((a,b)=>a-b),notes:logNote,ts:new Date().toISOString()};
     logSets=savedSets;
     saveDB("entries");
     checkPRs(wIdx,dk);
@@ -2533,6 +2561,9 @@ function renderLog(c){
       body.appendChild(preloadBtn);
     }
     const exerciseComplete=mySets.length>=(parseInt(ex.sets)||1);
+    const normalizeSavedSet=set=>({kg:String(set.kg||""),reps:String(set.reps||""),rir:String(set.rir||""),note:String(set.note||"")});
+    const persistedExerciseSets=(DB.entries[dk]?.sets||[]).filter(set=>set.ei===ei);
+    const exerciseSaved=(DB.entries[dk]?.savedExercises||[]).includes(ei)&&mySets.length>0&&persistedExerciseSets.length===mySets.length&&mySets.every((set,index)=>JSON.stringify(normalizeSavedSet(set))===JSON.stringify(normalizeSavedSet(persistedExerciseSets[index])));
     const coachPanel=exerciseComplete&&!isCardio?el("div",{class:"ai-coach-panel"}):null;
     if(coachPanel){
       const coachSessions=getCoachSessions(ex.n,dk);
@@ -2541,17 +2572,17 @@ function renderLog(c){
       else coachPanel.innerHTML='<div class="ai-coach-head"><div class="ai-coach-title">SYSTEM AI COACH</div><div class="ai-coach-source">Pronto</div></div><div class="ai-coach-loading">Salva l’esercizio completato per analizzare le ultime sessioni.</div>';
     }
     const saveExerciseBtn=el("button",{
-      class:"btn"+(exerciseComplete?" btn-acc":""),
-      style:"margin-top:8px;font-size:12px;padding:10px 14px;width:100%;border-color:var(--legs);color:"+(exerciseComplete?"#020711":"var(--legs)")+";opacity:"+(mySets.length?"1":".45"),
+      class:"btn"+((exerciseComplete||exerciseSaved)?" btn-acc":""),
+      style:"margin-top:8px;font-size:12px;padding:10px 14px;width:100%;border-color:var(--legs);color:"+((exerciseComplete||exerciseSaved)?"#020711":"var(--legs)")+";opacity:"+(mySets.length?"1":".45")+(exerciseSaved?";background:var(--legs)":""),
       onclick:()=>{
         if(!mySets.length){flash("Inserisci almeno una serie prima di salvare","#ff6b47");return;}
-        saveSessionProgress("✓ "+ex.n+" salvato");
+        saveSessionProgress("✓ "+ex.n+" salvato",false,ei);
         saveExerciseBtn.textContent="✓ Esercizio salvato";
         saveExerciseBtn.style.background="var(--legs)";
         saveExerciseBtn.style.color="#020711";
         if(exerciseComplete&&coachPanel)runAiCoach(coachPanel,ex.n,dk);
       }
-    },[exerciseComplete?"💾 Salva esercizio completato":"💾 Salva progressi esercizio ("+mySets.length+"/"+ex.sets+")"]);
+    },[exerciseSaved?"✓ Esercizio salvato":exerciseComplete?"💾 Salva esercizio completato":"💾 Salva progressi esercizio ("+mySets.length+"/"+ex.sets+")"]);
     body.appendChild(saveExerciseBtn);
     if(coachPanel)body.appendChild(coachPanel);
     card.appendChild(body);
