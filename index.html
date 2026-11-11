@@ -1116,29 +1116,31 @@ function calcTransitionRest(curEx,nextEx){
   return 90;                                    // 1:30 → isolamento muscoli diversi
 }
 function prepareRecoverySound(){
+  if(!configureRecoveryAudioSession())return;
   if(!recoveryAudioElement){
     recoveryAudioElement=new Audio(createRecoveryBeepDataUrl());
     recoveryAudioElement.preload="auto";
+    recoveryAudioElement.addEventListener("ended",restoreRecoveryAudioSession);
   }
-  // Lo sblocco avviene nel gesto che avvia il timer. HTMLAudio tende a
-  // rimanere autorizzato più stabilmente di AudioContext sui browser mobili.
+  // Lo sblocco avviene nel gesto che avvia il timer, come richiesto dai browser mobili.
   recoveryAudioElement.volume=0.001;
   const unlock=recoveryAudioElement.play();
   if(unlock&&typeof unlock.then==="function")unlock.then(()=>{recoveryAudioElement.pause();recoveryAudioElement.currentTime=0;recoveryAudioElement.volume=1;}).catch(()=>{});
-  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
-  if(!AudioContextClass)return;
-  if(!recoveryAudioContext)recoveryAudioContext=new AudioContextClass();
-  if(recoveryAudioContext.state==="suspended")recoveryAudioContext.resume().catch(()=>{});
-
-  // Un brevissimo segnale silenzioso, avviato dal tocco dell'utente,
-  // mantiene l'audio autorizzato su iPhone fino alla fine del recupero.
-  const unlockOscillator=recoveryAudioContext.createOscillator();
-  const unlockGain=recoveryAudioContext.createGain();
-  unlockGain.gain.value=0.0001;
-  unlockOscillator.connect(unlockGain);
-  unlockGain.connect(recoveryAudioContext.destination);
-  unlockOscillator.start();
-  unlockOscillator.stop(recoveryAudioContext.currentTime+0.02);
+}
+function configureRecoveryAudioSession(){
+  if(!navigator.audioSession)return false;
+  try{
+    // Un avviso breve deve sovrapporsi alla musica, non sostituirla.
+    navigator.audioSession.type="transient";
+    return true;
+  }catch(error){
+    console.warn("Sessione audio non mixabile",error);
+    return false;
+  }
+}
+function restoreRecoveryAudioSession(){
+  if(!navigator.audioSession)return;
+  try{navigator.audioSession.type="auto";}catch(error){console.warn("Ripristino sessione audio non riuscito",error);}
 }
 function createRecoveryBeepDataUrl(){
   const rate=22050,duration=1,samples=Math.floor(rate*duration),dataSize=samples*2,buffer=new ArrayBuffer(44+dataSize),view=new DataView(buffer);
@@ -1147,52 +1149,12 @@ function createRecoveryBeepDataUrl(){
   for(let i=0;i<samples;i++){const t=i/rate;let value=0;[0,.42].forEach(start=>{const local=t-start;if(local>=0&&local<.28){const fade=Math.min(1,local/.015,(.28-local)/.04);value+=Math.sin(2*Math.PI*1050*local)*.72*fade+Math.sin(2*Math.PI*2100*local)*.18*fade;}});view.setInt16(44+i*2,Math.max(-1,Math.min(1,value))*32767,true);}
   const bytes=new Uint8Array(buffer);let binary="";for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));return"data:audio/wav;base64,"+btoa(binary);
 }
-function playRecoveryOscillator(){
-  if(!recoveryAudioContext)return;
-  const play=()=>{
-    const now=recoveryAudioContext.currentTime;
-    const compressor=recoveryAudioContext.createDynamicsCompressor();
-    const masterGain=recoveryAudioContext.createGain();
-    compressor.threshold.value=-18;
-    compressor.knee.value=8;
-    compressor.ratio.value=4;
-    compressor.attack.value=0.003;
-    compressor.release.value=0.2;
-    masterGain.gain.value=0.9;
-    compressor.connect(masterGain);
-    masterGain.connect(recoveryAudioContext.destination);
-
-    [0,0.42].forEach(delay=>{
-      [
-        {type:"triangle",frequency:1050,volume:0.72},
-        {type:"sine",frequency:2100,volume:0.24}
-      ].forEach(tone=>{
-        const oscillator=recoveryAudioContext.createOscillator();
-        const gain=recoveryAudioContext.createGain();
-        oscillator.type=tone.type;
-        oscillator.frequency.value=tone.frequency;
-        gain.gain.setValueAtTime(0.0001,now+delay);
-        gain.gain.exponentialRampToValueAtTime(tone.volume,now+delay+0.018);
-        gain.gain.setValueAtTime(tone.volume,now+delay+0.2);
-        gain.gain.exponentialRampToValueAtTime(0.0001,now+delay+0.3);
-        oscillator.connect(gain);
-        gain.connect(compressor);
-        oscillator.start(now+delay);
-        oscillator.stop(now+delay+0.31);
-      });
-    });
-  };
-  if(recoveryAudioContext.state==="suspended")recoveryAudioContext.resume().then(play).catch(()=>{});
-  else play();
-}
 function playRecoverySound(){
-  if(recoveryAudioElement){
-    recoveryAudioElement.pause();recoveryAudioElement.currentTime=0;recoveryAudioElement.volume=1;
-    const playback=recoveryAudioElement.play();
-    if(playback&&typeof playback.catch==="function")playback.catch(()=>playRecoveryOscillator());
-    return;
-  }
-  playRecoveryOscillator();
+  if(!configureRecoveryAudioSession()||!recoveryAudioElement)return false;
+  recoveryAudioElement.pause();recoveryAudioElement.currentTime=0;recoveryAudioElement.volume=1;
+  const playback=recoveryAudioElement.play();
+  if(playback&&typeof playback.catch==="function")playback.catch(()=>restoreRecoveryAudioSession());
+  return true;
 }
 function startRecoveryTimer(seconds,exName){
   stopRecoveryTimer();
@@ -1806,7 +1768,6 @@ let nutQuery="";
 let nutritionSelectedDate=todayStr();
 let recTimerInterval=null;
 let recTimerEnd=0;
-let recoveryAudioContext=null;
 let recoveryAudioElement=null;
 
 // ── TAB ────────────────────────────────────────────────────────────────
