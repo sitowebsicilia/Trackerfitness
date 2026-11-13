@@ -607,7 +607,9 @@ const LS={
 };
 const PROGRAM_VERSION="mesociclo-2-body-recomp-2026-09-10";
 
+const GYMS={home:"Palestra abituale",sicily:"Sicilia"};
 let DB={
+  gymSettings:LS.get("ft_gymSettings")||{selected:"home",equipment:{}},
   entries:LS.get("ft_entries")||{},
   nutrition:LS.get("ft_nutrition")||{},
   exDefs:LS.get("ft_exdefs")||DEF_DAYS.map(d=>d.exs.map(e=>({...e}))),
@@ -1211,10 +1213,11 @@ function checkPRs(wIdx,dk){
   exDefs_.forEach((ex,ei)=>{
     const sets=(entry.sets||[]).filter(s=>s.ei===ei);if(!sets.length)return;
     const maxKg=Math.max(...sets.map(s=>parseFloat(s.kg)||0));if(!maxKg)return;
-    const prev=DB.prs[ex.n];
+    const label=recordLabel(ex.n,entry.gymId,equipmentContext(entry,ei));
+    const prev=DB.prs[label];
     if(!prev||maxKg>prev.kg){
       const bestSet=sets.find(s=>parseFloat(s.kg)===maxKg);
-      DB.prs[ex.n]={kg:maxKg,date:dk,reps:bestSet?.reps||""};
+      DB.prs[label]={kg:maxKg,date:dk,reps:bestSet?.reps||""};
       newPRs.push(ex.n+": "+maxKg+"kg");
     }
   });
@@ -1487,7 +1490,7 @@ function shiftWorkoutToNextDay(dateStr,wIdx,reason){
 // ── UTILS ──────────────────────────────────────────────────────────────
 const todayStr=()=>localDateString();
 const fmt=n=>parseFloat((n||0).toFixed(1));
-const $=id=>document.getElementById(id);
+function $(id){return document.getElementById(id);}
 function weekKey(ds){const d=localDateFromString(ds),day=d.getDay(),diff=day===0?-6:1-day,m=new Date(d);m.setDate(d.getDate()+diff);return localDateString(m);}
 function flash(msg,color){
   const f=$("flash");f.textContent=msg;
@@ -1744,9 +1747,73 @@ document.addEventListener("keydown",event=>{
  }
 });
 
+function gymName(id){return GYMS[id]||GYMS.home;}
+function equipmentFor(name,gym){
+  return DB.gymSettings.equipment[JSON.stringify([gym,normalizeExerciseName(name)])]||{id:"default",name:"Attrezzatura abituale",notes:"",shared:false};
+}
+function equipmentContext(entry,ei){
+  return entry.equipment?.[ei]||{id:"default",name:"Attrezzatura abituale",notes:"",shared:false};
+}
+function comparisonKey(name,gym,equipment){
+  return JSON.stringify([normalizeExerciseName(name),equipment.shared?"shared":gym||"home",equipment.id]);
+}
+function matchesEquipment(entry,set,name,gym,equipment,wIdx,ei){
+  const savedName=set.exName||entry.exercises?.[set.ei]?.n;
+  const sameExercise=savedName?normalizeExerciseName(savedName)===normalizeExerciseName(name):entry.dayIdx===wIdx&&set.ei===ei;
+  return sameExercise&&comparisonKey(name,entry.gymId,equipmentContext(entry,set.ei))===comparisonKey(name,gym,equipment);
+}
+function recordLabel(name,gym,equipment){
+  return name+" · "+(equipment.shared?"Condivisa":gymName(gym))+" · "+equipment.name;
+}
+function rebuildEquipmentRecords(){
+  const records={};
+  Object.entries(DB.entries).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([date,entry])=>{
+    if(entry.skipped)return;
+    (entry.sets||[]).forEach(set=>{
+      const name=set.exName||entry.exercises?.[set.ei]?.n||getExDefs(entry.dayIdx)[set.ei]?.n;
+      const kg=parseFloat(set.kg)||0;if(!name||!kg)return;
+      const label=recordLabel(name,entry.gymId,equipmentContext(entry,set.ei));
+      if(!records[label]||kg>records[label].kg)records[label]={kg,date,reps:set.reps||""};
+    });
+  });
+  DB.prs=records;
+}
+function gymPicker(value,onChange,disabled=false){
+  const box=el("div",{class:"card",style:"padding:14px"});
+  box.appendChild(el("label",{for:"gym-choice"},["Palestra"]));
+  const select=el("select",{id:"gym-choice",class:"inp","aria-label":"Palestra"});
+  Object.entries(GYMS).forEach(([id,name])=>select.appendChild(el("option",{value:id},[name])));
+  select.value=value;select.disabled=disabled;
+  select.addEventListener("change",()=>onChange(select.value));
+  box.appendChild(select);
+  box.appendChild(el("div",{style:"font-size:12px;color:var(--mut);margin-top:6px"},[disabled?"Palestra fissata per questa sessione.":"I vecchi allenamenti appartengono alla Palestra abituale."]));
+  return box;
+}
+function currentEquipment(ex,ei){return logEquipment[ei]||equipmentFor(ex.n,logGym);}
+function editEquipment(ex,ei){
+  const current=currentEquipment(ex,ei);
+  openModal("Attrezzatura · "+gymName(logGym),body=>{
+    const name=el("input",{class:"inp","aria-label":"Nome macchinario",placeholder:"Marca o nome del macchinario"});name.value=current.name;
+    const notes=el("textarea",{class:"inp","aria-label":"Regolazioni",placeholder:"Sedile, impugnatura, regolazioni…"});notes.value=current.notes||"";
+    const shared=el("input",{type:"checkbox"});shared.checked=!!current.shared;
+    body.appendChild(name);body.appendChild(notes);
+    body.appendChild(el("label",{},[shared," Condividi tra palestre: solo attrezzatura ed esecuzione equivalenti"]));
+    body.appendChild(el("button",{class:"btn btn-acc",onclick:()=>{
+      const title=name.value.trim();if(!title){name.focus();return;}
+      const equipment={id:normalizeExerciseName(title)===normalizeExerciseName("Attrezzatura abituale")?"default":normalizeExerciseName(title),name:title,notes:notes.value.trim(),shared:shared.checked};
+      logEquipment[ei]=equipment;
+      DB.gymSettings.equipment[JSON.stringify([logGym,normalizeExerciseName(ex.n)])]=equipment;
+      saveDB("gymSettings");closeModal();render();
+    }},["Salva attrezzatura"]));
+  });
+}
+
 // ── STATO ──────────────────────────────────────────────────────────────
 let currentTab="log";
 let logDayIdx=(()=>{const d=new Date().getDay();return d===0?6:d-1;})();
+let logGym=DB.gymSettings.selected||"home";
+let logEquipment={};
+let progGym=logGym;
 let logSets=[];
 let logNote="";
 let logView="plan";
@@ -1785,6 +1852,7 @@ function switchTab(tab){
   if(!matchMedia("(prefers-reduced-motion: reduce)").matches)$("content").animate([{opacity:.2,transform:"translateY(6px)"},{opacity:1,transform:"none"}],{duration:220,easing:"ease-out"});
 }
 function render(){
+  rebuildEquipmentRecords();
   _sparklineCounter=0;
   const c=$("content");c.innerHTML="";
   if(currentTab==="log")renderLog(c);
@@ -1804,6 +1872,8 @@ function initLogDay(){
   const dk=getDayDate(logDayIdx);
   const wIdx=getDayWorkoutIdx(logDayIdx,dk);
   const e=DB.entries[dk];
+  logGym=e&&!e.skipped?(e.gymId||"home"):(DB.gymSettings.selected||"home");
+  logEquipment=e&&!e.skipped?Object.fromEntries((e.exercises||getExDefs(wIdx)).map((ex,ei)=>[ei,{...equipmentContext(e,ei)}])):{};
   jumpSetPairs=[];
   jumpSetMode=false;
   if(e&&e.dayIdx===wIdx&&!e.skipped){logSets=[...e.sets];logNote=e.notes||"";}
@@ -1819,7 +1889,7 @@ function normalizeExerciseName(name){
     .replace(/[^a-z0-9]+/g," ")
     .trim();
 }
-function getLastSessionSets(wIdx,ei,exName,excludeDate){
+function getLastSessionSets(wIdx,ei,exName,excludeDate,gym=logGym,equipment=currentEquipment({n:exName},ei)){
   // Cerca l'esercizio reale in tutto lo storico: un cambio di giorno o posizione
   // nella scheda non deve far riemergere una prestazione vecchia di mesi.
   const targetName=normalizeExerciseName(exName);
@@ -1828,6 +1898,7 @@ function getLastSessionSets(wIdx,ei,exName,excludeDate){
     .sort((a,b)=>b[0].localeCompare(a[0]));
   for(const [date,entry] of prev){
     const sets=(entry.sets||[]).filter(s=>{
+      if(!matchesEquipment(entry,s,exName,gym,equipment,wIdx,ei))return false;
       const setName=s.exName||entry.exercises?.[s.ei]?.n;
       if(setName)return normalizeExerciseName(setName)===targetName;
 
@@ -1852,13 +1923,15 @@ function parseCoachNumber(value,min,max){
   const number=range?(Number(range[1])+Number(range[2]))/2:Number(text);
   return Number.isFinite(number)&&number>=min&&number<=max?number:null;
 }
-function getCoachSessions(exName,throughDate){
+function getCoachSessions(exName,throughDate,gym=logGym,equipment=null){
+  const selectedIndex=getExDefs(getDateWorkoutIndex(throughDate)).findIndex(ex=>normalizeExerciseName(ex.n)===normalizeExerciseName(exName));
+  equipment=equipment||currentEquipment({n:exName},selectedIndex);
   const target=normalizeExerciseName(exName);
   return Object.entries(DB.entries)
     .filter(([date,entry])=>date<=throughDate&&!entry.skipped&&Array.isArray(entry.sets))
     .map(([date,entry])=>({date,sets:entry.sets.filter(set=>{
       const name=set.exName||entry.exercises?.[set.ei]?.n;
-      return name&&normalizeExerciseName(name)===target;
+      return name&&normalizeExerciseName(name)===target&&comparisonKey(exName,entry.gymId,equipmentContext(entry,set.ei))===comparisonKey(exName,gym,equipment);
     }).map(set=>({
       kg:parseCoachNumber(set.kg,0,1000),
       reps:parseCoachNumber(set.reps,0,1000),
@@ -1966,8 +2039,9 @@ function buildGeneralCoachHistory(){
       if(!name)return;
       const kg=parseCoachNumber(set.kg,0,1000),reps=parseCoachNumber(set.reps,0,1000),rir=parseCoachNumber(set.rir,0,10);
       if(kg===null&&reps===null&&rir===null)return;
-      const key=normalizeExerciseName(name);
-      if(!sessionExercises.has(key))sessionExercises.set(key,{name,sets:[]});
+      const equipment=equipmentContext(entry,set.ei);
+      const key=comparisonKey(name,entry.gymId,equipment);
+      if(!sessionExercises.has(key))sessionExercises.set(key,{name:recordLabel(name,entry.gymId,equipment),sets:[]});
       sessionExercises.get(key).sets.push({kg,reps,rir});
     });
     sessionExercises.forEach((value,key)=>{
@@ -2219,13 +2293,16 @@ function renderLog(c){
   const wIdx=getDayWorkoutIdx(logDayIdx,dk);
   const day=DEF_DAYS[wIdx];
   const exDefs=getExDefs(wIdx);
+  c.appendChild(gymPicker(logGym,gym=>{logGym=gym;logEquipment={};DB.gymSettings.selected=gym;saveDB("gymSettings");render();},logSets.length>0||!!DB.entries[dk]));
+  exDefs.forEach((ex,ei)=>{if(!logEquipment[ei])logEquipment[ei]={...equipmentFor(ex.n,logGym)};});
+  const sessionEquipment=()=>Object.fromEntries(exDefs.map((ex,ei)=>[ei,{...currentEquipment(ex,ei)}]));
   const saveSessionProgress=(message,finishSession=false,savedExerciseIndex=null)=>{
     const exercises=exDefs.map(ex=>({...ex}));
     const savedSets=logSets.map(set=>({...set,exName:exercises[set.ei]?.n||set.exName||""}));
     const savedExercises=new Set(DB.entries[dk]?.savedExercises||[]);
     if(savedExerciseIndex!==null)savedExercises.add(savedExerciseIndex);
     if(finishSession)savedSets.forEach(set=>savedExercises.add(set.ei));
-    DB.entries[dk]={dayIdx:wIdx,exercises,sets:savedSets,savedExercises:[...savedExercises].sort((a,b)=>a-b),notes:logNote,ts:new Date().toISOString()};
+    DB.entries[dk]={dayIdx:wIdx,gymId:logGym,equipment:sessionEquipment(),exercises,sets:savedSets,savedExercises:[...savedExercises].sort((a,b)=>a-b),notes:logNote,ts:new Date().toISOString()};
     logSets=savedSets;
     saveDB("entries");
     checkPRs(wIdx,dk);
@@ -2416,6 +2493,11 @@ function renderLog(c){
     chTop.appendChild(el("button",{class:"btn btn-sm",style:"flex-shrink:0;padding:4px 8px;font-size:11px;border-color:var(--a2);color:var(--a2);touch-action:manipulation",
       onclick:()=>openExOptions(ei,exDefs)},["↔ Alt."]));
     ch.appendChild(chTop);
+    const equipment=currentEquipment(ex,ei);
+    ch.appendChild(el("div",{style:"font-size:12px;color:var(--mut)"},[equipment.name+" · "+(equipment.shared?"Condivisa":gymName(logGym))+(equipment.notes?" · "+equipment.notes:"")]));
+    const equipmentButton=el("button",{class:"btn btn-sm",onclick:()=>editEquipment(ex,ei)},["Attrezzatura / regolazioni"]);
+    equipmentButton.disabled=mySets.length>0;ch.appendChild(equipmentButton);
+    if(!lastSess)ch.appendChild(el("div",{style:"font-size:12px;color:var(--a2)"},["Primo riferimento per questa attrezzatura: registra peso, ripetizioni e RIR."]));
     if(ex.muscles||ex.recovery){const meta=el("div",{style:"display:flex;gap:6px;margin-top:4px;flex-wrap:wrap"});if(ex.muscles)meta.appendChild(el("span",{style:"font-size:10px;color:var(--mut);font-weight:600"},["💪 "+ex.muscles]));if(ex.recovery)meta.appendChild(el("span",{style:"font-size:10px;color:#9b47ff;font-weight:700;background:#9b47ff22;padding:2px 7px;border-radius:4px"},["⏱ "+ex.recovery]));ch.appendChild(meta);}
     // ── Ultima sessione ───────────────────────────────────────
     if(lastSess){
@@ -2430,7 +2512,7 @@ function renderLog(c){
         const sRow=el("div",{style:"display:flex;align-items:center;gap:8px;padding:3px 0;border-top:1px solid #ffffff08"});
         sRow.appendChild(el("span",{style:"font-size:10px;font-weight:800;color:var(--acc);min-width:18px"},["S"+(i+1)]));
         const kgVal=parseFloat(s.kg)||0;
-        const prData=DB.prs[ex.n];
+        const prData=DB.prs[recordLabel(ex.n,logGym,currentEquipment(ex,ei))];
         const isPR=!isCardio&&prData&&kgVal>0&&kgVal>=prData.kg&&prData.date===lastSess.date;
         const kgSpan=el("span",{style:"font-size:11px;color:var(--txt);font-weight:700"},[isCardio?(s.reps||"durata non indicata"):(s.kg||"—")+"kg × "+(s.reps||"—")+" rep"]);
         sRow.appendChild(kgSpan);
@@ -2557,8 +2639,8 @@ function renderLog(c){
 
   if(logSets.length){
     const vol=calcSessionVolume(logSets);
-    const lastEntry=Object.entries(DB.entries).filter(([d,e])=>e.dayIdx===wIdx&&!e.skipped&&d<dk).sort((a,b)=>b[0].localeCompare(a[0]))[0];
-    const prevVol=lastEntry?calcSessionVolume(lastEntry[1].sets||[]):0;
+    // Mantieni il volume come totale descrittivo della seduta.
+    const prevVol=0; // Il volume totale non è confrontabile quando cambia attrezzatura.
     const diff=vol-prevVol;
     const volBox=el("div",{class:"vol-bar"});
     volBox.appendChild(el("div",{},[
@@ -2592,7 +2674,7 @@ function renderLog(c){
   }
   c.appendChild(br);
   const exportDraft=()=>({
-    dayIdx:wIdx,
+    dayIdx:wIdx,gymId:logGym,equipment:sessionEquipment(),
     exercises:exDefs.map(ex=>({...ex})),
     sets:logSets.map(set=>({...set,exName:exDefs[set.ei]?.n||set.exName||""})),
     notes:logNote,
@@ -3974,6 +4056,7 @@ function renderNutritionWeight(shell){
 // ════════════════════════════════════════════════════════════════
 function exportBackup(){
   const data={
+    gymSettings:DB.gymSettings,
     entries:DB.entries,
     nutrition:DB.nutrition,
     exDefs:DB.exDefs,
@@ -4021,6 +4104,7 @@ function isPlainObject(value){
 function validateBackup(data){
   if(!isPlainObject(data))return "Il contenuto non è un backup valido";
   if(!isPlainObject(data.entries)||!isPlainObject(data.nutrition))return "Archivio allenamenti o alimentazione non valido";
+  if(data.gymSettings!==undefined&&(!isPlainObject(data.gymSettings)||!GYMS[data.gymSettings.selected]||!isPlainObject(data.gymSettings.equipment)))return "Palestre non valide";
   if(data.exDefs!==undefined&&!Array.isArray(data.exDefs))return "Definizioni esercizi non valide";
   if(data.dayOverrides!==undefined&&!isPlainObject(data.dayOverrides))return "Calendario non valido";
   if(data.bodyWeights!==undefined&&!Array.isArray(data.bodyWeights))return "Storico peso non valido";
@@ -4044,6 +4128,7 @@ function importBackup(file){
       const validationError=validateBackup(data);
       if(validationError){flash(validationError,"#ff6b47");return;}
       if(!confirm("Importare il backup? I dati attuali verranno sostituiti.")){return;}
+      DB.gymSettings=data.gymSettings||{selected:"home",equipment:{}};saveDB("gymSettings");
       if(data.entries){DB.entries=data.entries;saveDB("entries");}
       if(data.nutrition){DB.nutrition=data.nutrition;saveDB("nutrition");}
       if(data.exDefs){DB.exDefs=data.exDefs;saveDB("exDefs");}
@@ -4163,7 +4248,7 @@ function dayRowEl(d){
   row.appendChild(el("div",{style:"flex:1"},[
     el("div",{style:"font-size:9px;color:var(--a2);font-weight:900;letter-spacing:1px;text-transform:uppercase"},["MISSION COMPLETE"]),
     el("div",{style:"font-weight:850;font-size:13px;text-transform:uppercase;letter-spacing:.4px"},[dayDef.name]),
-    el("div",{style:"font-size:11px;color:var(--mut)"},[d+" · "+(e.sets||[]).length+" set"+(sessVol?" · "+sessVol.toLocaleString("it")+" kg":"")+" · EXP +"+exp])
+    el("div",{style:"font-size:11px;color:var(--mut)"},[d+" · "+gymName(e.gymId)+" · "+(e.sets||[]).length+" set"+(sessVol?" · "+sessVol.toLocaleString("it")+" kg":"")+" · EXP +"+exp])
   ]));
   row.appendChild(el("span",{class:"tag",style:"background:#43d9ff11;color:var(--a2);border:1px solid #43d9ff55"},[dayDef.label]));
   row.appendChild(el("span",{style:"color:var(--mut);font-size:11px;margin-left:6px"},[isOpen?"▲":"▼"]));
@@ -4181,7 +4266,7 @@ function dayRowEl(d){
         const r=el("div",{style:"display:grid;grid-template-columns:2fr 62px 44px 40px 1fr;gap:4px;padding:4px 0;border-bottom:1px solid #ffffff0a;font-size:12px"});
         const exObj=exDefsForEntry[s.ei]||{};
         const isCardio=isCardioExercise(exObj);
-        r.appendChild(el("div",{style:"font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"},[s.exName||exNames[s.ei]||"Es."+s.ei]));
+        r.appendChild(el("div",{style:"font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"},[(s.exName||exNames[s.ei]||"Es."+s.ei)+" · "+equipmentContext(e,s.ei).name+(equipmentContext(e,s.ei).notes?" · "+equipmentContext(e,s.ei).notes:"")]));
         r.appendChild(el("div",{style:"color:var(--acc);font-weight:700"},[isCardio?(s.reps||"—"):(s.kg||"—")+" kg"]));
         r.appendChild(el("div",{style:"color:var(--a2)"},[isCardio?"":(s.reps||"—")+" ×"]));
         r.appendChild(el("div",{style:"color:var(--legs);font-weight:700"},[isCardio?"":(s.rir!==undefined&&s.rir!==""?String(s.rir):"—")]));
@@ -4203,6 +4288,8 @@ function dayRowEl(d){
 // PROGRESSI
 // ════════════════════════════════════════════════════════════════
 function renderProgress(c){
+  rebuildEquipmentRecords();
+  c.appendChild(gymPicker(progGym,gym=>{progGym=gym;progOpenSess=null;render();}));
   const progressExercises=getProgressExercises(progDay);
   if(!progressExercises[progEx])progEx=0;
   const selectedProgressExercise=progressExercises[progEx]||null;
@@ -4284,11 +4371,27 @@ function renderProgress(c){
   const ep=el("div",{style:"display:flex;flex-wrap:wrap;gap:5px"});
   if(exNames.length)exNames.forEach((n,i)=>{ep.appendChild(el("button",{class:"btn",style:"font-size:10px;padding:6px 10px;touch-action:manipulation;border-color:"+(i===progEx?"var(--acc)":"var(--brd)")+";background:"+(i===progEx?"#e8ff4722":"var(--surf)")+";color:"+(i===progEx?"var(--acc)":"var(--mut)"),onclick:()=>{progEx=i;progOpenSess=null;render();}},[n]));});
   else ep.appendChild(el("div",{style:"font-size:12px;color:var(--mut);padding:6px 0"},["Nessun esercizio di allenamento tracciabile per questo giorno."]));
-  dc.appendChild(ep);c.appendChild(dc);
+  dc.appendChild(ep);
+  if(selectedProgressExercise){
+    const name=selectedProgressExercise.name;
+    const choices=new Map();
+    const selected=equipmentFor(name,progGym);choices.set(comparisonKey(name,progGym,selected),selected);
+    Object.values(DB.entries).forEach(entry=>(entry.sets||[]).forEach(set=>{
+      const savedName=set.exName||entry.exercises?.[set.ei]?.n;
+      const equipment=equipmentContext(entry,set.ei);
+      if(normalizeExerciseName(savedName)===normalizeExerciseName(name)&&((entry.gymId||"home")===progGym||equipment.shared))choices.set(comparisonKey(name,progGym,equipment),equipment);
+    }));
+    const picker=el("select",{class:"inp","aria-label":"Attrezzatura per i progressi"});
+    choices.forEach((equipment,key)=>picker.appendChild(el("option",{value:key},[equipment.name+(equipment.shared?" · Condivisa":"")])));
+    picker.value=comparisonKey(name,progGym,selected);
+    picker.addEventListener("change",()=>{DB.gymSettings.equipment[JSON.stringify([progGym,normalizeExerciseName(name)])]=choices.get(picker.value);saveDB("gymSettings");render();});
+    dc.appendChild(picker);
+  }
+  c.appendChild(dc);
   const progressData=[];
   Object.entries(DB.entries).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([date,e])=>{
     if(e.dayIdx!==progDay||e.skipped)return;
-    const ms=(e.sets||[]).filter(s=>selectedProgressExercise&&s.ei===selectedProgressExercise.ei);if(!ms.length)return;
+    const ms=(e.sets||[]).filter(s=>selectedProgressExercise&&matchesEquipment(e,s,selectedProgressExercise.name,progGym,equipmentFor(selectedProgressExercise.name,progGym),progDay,selectedProgressExercise.ei));if(!ms.length)return;
     const loadedSets=ms.filter(s=>(parseFloat(s.kg)||0)>0);if(!loadedSets.length)return;
     const topSet=[...loadedSets].sort((a,b)=>{
       const kgDiff=(parseFloat(b.kg)||0)-(parseFloat(a.kg)||0);
@@ -4615,14 +4718,14 @@ function addDaysStr(dateStr,days){
   d.setDate(d.getDate()+days);
   return localDateString(d);
 }
-function getProgressSeries(wIdx,ei,endDate){
+function getProgressSeries(wIdx,ei,endDate,gym=DB.gymSettings.selected||"home",equipment=null){
   const exName=(getExDefs(wIdx)[ei]||{}).n;
   return Object.entries(DB.entries).sort((a,b)=>a[0].localeCompare(b[0])).reduce((acc,[date,e])=>{
     if(endDate&&date>endDate)return acc;
     if(e.dayIdx!==wIdx||e.skipped)return acc;
     const ms=(e.sets||[]).filter(s=>{
       const savedName=s.exName||e.exercises?.[s.ei]?.n;
-      return s.ei===ei||savedName===exName;
+      return matchesEquipment(e,s,exName,gym,equipment||equipmentFor(exName,gym),wIdx,ei);
     });
     const loadedSets=ms.filter(s=>(parseFloat(s.kg)||0)>0);
     if(!loadedSets.length)return acc;
@@ -4671,12 +4774,13 @@ function generateWeeklyReport(weekStart){
     getProgressExercises(e.dayIdx).forEach(item=>{
       const hasLoad=(e.sets||[]).some(s=>s.ei===item.ei&&(parseFloat(s.kg)||0)>0);
       if(!hasLoad)return;
-      const key=e.dayIdx+"-"+item.ei;
-      if(!uniqueProgressExercises.some(x=>x.key===key))uniqueProgressExercises.push({...item,key,wIdx:e.dayIdx,dayName:DEF_DAYS[e.dayIdx]?.name||""});
+      const equipment=equipmentContext(e,item.ei),gym=e.gymId||"home";
+      const key=comparisonKey(item.name,gym,equipment);
+      if(!uniqueProgressExercises.some(x=>x.key===key))uniqueProgressExercises.push({...item,key,gym,equipment,name:recordLabel(item.name,gym,equipment),wIdx:e.dayIdx,dayName:DEF_DAYS[e.dayIdx]?.name||""});
     });
   });
   const progressBlocks=uniqueProgressExercises.map(item=>{
-    const series=getProgressSeries(item.wIdx,item.ei,weekEnd).slice(-6);
+    const series=getProgressSeries(item.wIdx,item.ei,weekEnd,item.gym,item.equipment).slice(-6);
     if(series.length<2)return null;
     const latest=series[series.length-1],first=series[0];
     const kgDiff=fmt(latest.maxkg-first.maxkg);
@@ -4724,7 +4828,8 @@ table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}th{backg
       const ex=exDefs[s.ei]||{};
       const section=getExerciseSection(ex,s.ei,e.dayIdx);
       if(section==="warmup"||section==="mobility"||section==="cardio")return;
-      const name=s.exName||ex.n||("Esercizio "+(s.ei+1));
+      const equipment=equipmentContext(e,s.ei);
+      const name=(s.exName||ex.n||("Esercizio "+(s.ei+1)))+" · "+equipment.name+(equipment.notes?" · "+equipment.notes:"");
       if(!grouped[name])grouped[name]=[];
       grouped[name].push(s);
     });
@@ -4772,7 +4877,7 @@ table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}th{backg
 .footer{text-align:center;color:#bbb;font-size:10px;margin-top:20px;border-top:1px solid #eee;padding-top:12px}
 @media print{.pdf-topbar{display:none!important}}`;
   let body=`<div class="rpt">
-<div class="hbar"><div><div class="hname">🏋️ ${escHtml(athlete)}</div><div class="hdate">Giornata ${escHtml(dateStr)} · ${escHtml(dayDef.name)}</div></div><div style="text-align:right"><div style="font-size:12px;font-weight:700;color:${escHtml(dayDef.color)}">${escHtml(dayDef.label)}</div><div style="font-size:10px;color:#aaa">${new Date().toLocaleDateString("it-IT")}</div></div></div>`;
+<div class="hbar"><div><div class="hname">🏋️ ${escHtml(athlete)}</div><div class="hdate">Giornata ${escHtml(dateStr)} · ${escHtml(dayDef.name)} · ${escHtml(gymName(e.gymId))}</div></div><div style="text-align:right"><div style="font-size:12px;font-weight:700;color:${escHtml(dayDef.color)}">${escHtml(dayDef.label)}</div><div style="font-size:10px;color:#aaa">${new Date().toLocaleDateString("it-IT")}</div></div></div>`;
   if(e.skipped){
     body+=`<div class="section"><div class="section-title">Giorno non completato</div><div class="note">${escHtml(e.skipReason||"Allenamento saltato")}</div></div>`;
   } else {
@@ -4784,7 +4889,8 @@ table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}th{backg
     const grouped={};
     (e.sets||[]).forEach(s=>{
       const ex=exDefs[s.ei]||{};
-      const name=s.exName||ex.n||("Esercizio "+(s.ei+1));
+      const equipment=equipmentContext(e,s.ei);
+      const name=(s.exName||ex.n||("Esercizio "+(s.ei+1)))+" · "+equipment.name+(equipment.notes?" · "+equipment.notes:"");
       if(!grouped[name])grouped[name]={ex,sets:[]};
       grouped[name].sets.push(s);
     });
@@ -5013,6 +5119,7 @@ function generateReport(type){
 
 // ── AVVIO ─────────────────────────────────────────────────────────────
 $("today-label").textContent=todayStr();
+rebuildEquipmentRecords();
 initLogDay();
 render();
 
