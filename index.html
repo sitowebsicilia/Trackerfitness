@@ -327,6 +327,20 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
 .exercise-cue-text{font-size:16px!important;line-height:1.48!important;color:#eaf7ff!important;font-weight:800}
 @media(max-width:390px){.crystal-card .plan-ex-name{font-size:19px!important}.crystal-card .hud-tile-value{font-size:17px!important}}
 
+.m3-exercise{margin-bottom:16px}.m3-exercise>*:not(.crystal-frame){position:relative;z-index:1}
+.m3-section{border:1px solid #235f89;margin:8px 0;background:#071426}
+.m3-section summary{padding:12px;cursor:pointer;font-weight:800;color:#70d9ff;min-height:44px}
+.m3-section-body{padding:0 12px 12px}.m3-section p,.m3-section li{font-size:14px;line-height:1.55}
+.m3-set{padding:12px 0;border-top:1px solid #235f89}.m3-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.m3-field{display:block;margin:8px 0;min-width:0;font-size:13px}.m3-field span{display:block;margin-bottom:5px;color:#b7d8ee}
+.m3-field .inp{font-size:16px;min-height:44px;width:100%}.m3-check{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px}
+.m3-check input{width:22px;height:22px;flex-shrink:0}.m3-set .btn{width:100%;min-height:44px;white-space:normal}
+.m3-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.m3-image-pending{border:1px dashed #235f89;padding:12px}
+.m3-image-button{background:#071426;color:#b7d8ee;border:1px solid #235f89;padding:4px;cursor:pointer}.m3-image-button img{width:100%;height:auto}
+.m3-table{width:100%;border-collapse:collapse;font-size:13px}.m3-table th,.m3-table td{padding:9px 4px;border-bottom:1px solid #235f89;text-align:left}
+@media(max-width:380px){.m3-fields{grid-template-columns:1fr}.m3-images{grid-template-columns:1fr}}
+
+
 </style>
 </head>
 <body>
@@ -366,6 +380,7 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
   <button class="rskip" onclick="stopRecoveryTimer()">✕ Salta</button>
 </div>
 
+<script src="mesocycle3-bootstrap.js"></script>
 <script>
 // ── DATI BASE ─────────────────────────────────────────────────────────
 const DEF_DAYS=[
@@ -636,7 +651,7 @@ let DB={
     targets:{kcal:2500,p:170,c:285,f:75}
   },
 };
-if(!LS.get("ft_programStart")){LS.set("ft_programStart",DB.programStart);}
+// Program start is preserved.
 function saveDB(k){
   const saved=LS.set("ft_"+k,DB[k]);
   if(!saved&&typeof flash==="function")flash("Salvataggio non riuscito: esporta un backup","#ff4567");
@@ -680,10 +695,8 @@ function normalizeCoreToCrunchPress20261012(){
   if(changedEntries)saveDB("entries");
   LS.set(key,true);
 }
-if(!LS.get("ft_programVersion")){
-  LS.set("ft_programVersion",PROGRAM_VERSION);
-}
-normalizeCoreToCrunchPress20261012();
+// Legacy version is preserved.
+// Historical migration retired; existing data is preserved: normalizeCoreToCrunchPress20261012();
 function applyManualWorkoutBackfill(){
   const backfillKey="ft_manualWorkoutBackfill_2026_08_04";
   if(LS.get(backfillKey))return;
@@ -1081,19 +1094,19 @@ function ensureProfileDefaults(){
   if(!DB.nutritionPrefs.snackClocks)DB.nutritionPrefs.snackClocks={};
   if(changed){saveDB("profile");saveDB("nutritionPrefs");}
 }
-ensureProfileDefaults();
-applyManualWorkoutBackfill();
-applySicilyTrainingPauseBackfill();
-applyManualFullBodyBackfill20260824();
-applyScheduleRestartAfterPull20260916();
-applyScheduleCorrectionFullThenPull20260916();
-applyScheduleCorrectionFullThenPush20260916();
-applyManualWorkoutBackfill20260924And26();
-fixWrongChestPressBackfill20260926();
-applyOctoberRestartAfterFamilyPause20261012();
-applyManualPullBackfill20261020();
-applyScheduleAfterTuesdayPull20261022();
-applySaturdayFullBodySchedule20261024();
+// Historical migration retired; existing data is preserved: ensureProfileDefaults();
+// Historical migration retired; existing data is preserved: applyManualWorkoutBackfill();
+// Historical migration retired; existing data is preserved: applySicilyTrainingPauseBackfill();
+// Historical migration retired; existing data is preserved: applyManualFullBodyBackfill20260824();
+// Historical migration retired; existing data is preserved: applyScheduleRestartAfterPull20260916();
+// Historical migration retired; existing data is preserved: applyScheduleCorrectionFullThenPull20260916();
+// Historical migration retired; existing data is preserved: applyScheduleCorrectionFullThenPush20260916();
+// Historical migration retired; existing data is preserved: applyManualWorkoutBackfill20260924And26();
+// Historical migration retired; existing data is preserved: fixWrongChestPressBackfill20260926();
+// Historical migration retired; existing data is preserved: applyOctoberRestartAfterFamilyPause20261012();
+// Historical migration retired; existing data is preserved: applyManualPullBackfill20261020();
+// Historical migration retired; existing data is preserved: applyScheduleAfterTuesdayPull20261022();
+// Historical migration retired; existing data is preserved: applySaturdayFullBodySchedule20261024();
 
 // ── TIMER RECUPERO ─────────────────────────────────────────────────────
 function parseRecoverySec(str){
@@ -1839,7 +1852,7 @@ let recoveryAudioElement=null;
 
 // ── TAB ────────────────────────────────────────────────────────────────
 function switchTab(tab){
-  if(tab!=="log")stopRecoveryTimer();
+  // Timer continues across tabs.
   if(tab==="nutrition")nutDateOffset=0;
   currentTab=tab;
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{
@@ -2318,7 +2331,7 @@ function renderLog(c){
   // ── DAY PILLS con workout scalato ────────────────────────────
   const todayDayIdx=(()=>{const d=new Date().getDay();return d===0?6:d-1;})();
   const pills=el("div",{class:"day-pills"});
-  DEF_DAYS.forEach((d,i)=>{
+  DEF_DAYS.slice(0,7).forEach((d,i)=>{
     const pillDate=getDayDate(i);
     const pw=DEF_DAYS[getDayWorkoutIdx(i,pillDate)];
     const hasOverride=DB.dayOverrides[pillDate]!==undefined;
@@ -4112,7 +4125,7 @@ function validateBackup(data){
   if(data.hydrationGoal!==undefined&&(!Number.isFinite(Number(data.hydrationGoal))||Number(data.hydrationGoal)<250||Number(data.hydrationGoal)>10000))return "Obiettivo idrico non valido";
   const invalidEntry=Object.entries(data.entries).some(([date,entry])=>
     !/^\d{4}-\d{2}-\d{2}$/.test(date)||!isPlainObject(entry)||
-    (entry.dayIdx!==undefined&&(!Number.isInteger(entry.dayIdx)||entry.dayIdx<0||entry.dayIdx>6))||
+    (entry.dayIdx!==undefined&&(!Number.isInteger(entry.dayIdx)||entry.dayIdx<0||entry.dayIdx>=DEF_DAYS.length))||
     (entry.sets!==undefined&&!Array.isArray(entry.sets))
   );
   if(invalidEntry)return "Una o più sessioni contengono dati non validi";
@@ -4304,6 +4317,7 @@ function renderProgress(c){
   c.appendChild(systemProgress(player.levelExp,player.nextExp,"var(--a2)"));
 
   // ── FASI DI ALLENAMENTO ──────────────────────────────────────────
+  if(todayStr()<M3.start){
   const phP=PHASES[DB.currentPhase-1];
   const phaseProgressP=getPhaseProgress();
   const phDoneP=phaseProgressP.done;
@@ -4333,6 +4347,7 @@ function renderProgress(c){
     });
   }
   c.appendChild(phCard);
+  }
 
   // ── KPI GLOBALI (streak + PR count) ──────────────────────────────
   const streak=getStreak();
@@ -5117,6 +5132,10 @@ function generateReport(type){
   document.body.appendChild(overlay);
 }
 
+</script>
+<script src="mesocycle3.js"></script>
+<script src="mesocycle3-storage.js"></script>
+<script>
 // ── AVVIO ─────────────────────────────────────────────────────────────
 $("today-label").textContent=todayStr();
 rebuildEquipmentRecords();
