@@ -1726,7 +1726,31 @@ function roleBadge(role){
   if(role==="quest")return el("span",{class:"tag",style:"color:var(--a2);border-color:#43d9ff66;background:#43d9ff11"},["QUEST"]);
   return el("span",{class:"tag",style:"color:var(--mut);border-color:#7ea6c455;background:#7ea6c411"},["STEP"]);
 }
+const EXERCISE_ARTWORK=new Map([
+  ["Hack Squat macchina","exercise_hack.jpg"],
+  ["Chest Press convergente","exercise_chest_convergent.jpg"],
+  ["Rematore Chest-Supported","exercise_row.jpg"],
+  ["Leg Curl seduto","exercise_leg_curl.jpg"],
+  ["Alzate Laterali ai Cavi","exercise_lateral.jpg"],
+  ["Curl Bicipiti al Cavo","exercise_cable_curl.jpg"],
+  ["Calf Raise in piedi","exercise_calf.jpg"],
+  ["Crunch Press","exercise_crunch.jpg"],
+  ["Hip Thrust macchina","exercise_hip.jpg"],
+  ["Lat Machine presa neutra","exercise_lat.jpg"],
+  ["Panca inclinata manubri 15–30°","exercise_incline.jpg"],
+  ["Reverse Pec Deck","exercise_reverse_fly.jpg"],
+  ["Estensioni Tricipiti sopra testa al cavo","exercise_overhead.jpg"],
+  ["Shrug con Manubri","exercise_shrug.jpg"],
+  ["Reverse Crunch a corpo libero","exercise_reverse_crunch.jpg"],
+  ["Chest Press macchina","exercise_chest_convergent.jpg"],
+  ["Rematore macchina con supporto","exercise_row.jpg"],
+  ["Curl Panca Scott macchina","exercise_scott.jpg"],
+  ["Push Down Tricipiti","exercise_pushdown.jpg"],
+  ["Reverse Wrist Curl","exercise_wrist.jpg"],
+]);
 function getExerciseArtwork(ex){
+  const artwork=EXERCISE_ARTWORK.get(ex?.n);
+  if(artwork)return artwork;
   const n=(ex?.n||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[-_]/g," ").replace(/\s+/g," ").trim();
   if(/seal\s*row/.test(n))return "sheet:seal";
   if(/plank|ab\s*wheel|anti[ -]?estensione/.test(n))return "sheet:plank";
