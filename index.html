@@ -368,6 +368,9 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
 
 <script>
 // ── DATI BASE ─────────────────────────────────────────────────────────
+const FULL_BODY_A_PREVIOUS_ROW="Rematore Chest-Supported";
+const FULL_BODY_A_ROW="Rematore con manubri su panca inclinata";
+const FULL_BODY_A_ROW_CUE="Petto appoggiato alla panca";
 const DEF_DAYS=[
   {label:"LUN",name:"FULL BODY",color:"#e8ff47",exs:[
     {n:"Mobilità in estensione toracica con foam roller",sets:1,reps:"2-3 min",note:"Mobilità/attivazione · TUT lento · estensione toracica",muscles:"Mobilità toracica",recovery:"30 sec"},
@@ -428,7 +431,7 @@ const DEF_DAYS=[
   {label:"A",name:"FULL BODY A",color:"#43d9ff",exs:[
     {n:"Hack Squat macchina",sets:3,reps:"6-10",note:"RIR 2 · TUT 2-0-1",muscles:"Quadricipiti · Glutei",recovery:"180 sec"},
     {n:"Chest Press convergente",sets:3,reps:"8-12",note:"RIR 2 · TUT 2-0-1",muscles:"Pettorali",recovery:"180 sec"},
-    {n:"Rematore Chest-Supported",sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec"},
+    {n:FULL_BODY_A_ROW,sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1 · "+FULL_BODY_A_ROW_CUE,muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec"},
     {n:"Leg Curl seduto",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Femorali",recovery:"120 sec"},
     {n:"Alzate Laterali ai Cavi",sets:2,reps:"12-20",note:"RIR 1-2 · TUT 2-0-1",muscles:"Deltoidi laterali",recovery:"90 sec"},
     {n:"Curl Bicipiti al Cavo",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Bicipiti · Brachiale",recovery:"120 sec"},
@@ -2208,6 +2211,7 @@ function getExerciseGroup(ex){
   const txt=((ex.muscles||"")+" "+(ex.n||"")+" "+(ex.note||"")).toLowerCase();
   if(/mobilit|stretch|cardio|tapis|recupero|foam|rotazioni|gatto|hinge|sleeper|propriocezione|adduzione scapole|tilt posteriore/.test(txt))return "skip";
   if(/quad|glute|femoral|ischio|leg|pressa|curl sdraiato|extension|polpacci|gastrocnemio|soleo/.test(txt))return "legs";
+  if(/rematore/.test(txt))return "back";
   if(/petto|panca|croci|chest|push-up/.test(txt))return "chest";
   if(/dorso|\blat\b|dorsale|pulley|row|rematore/.test(txt))return "back";
   if(/spalle|deltoid|lento|alzate|shoulder/.test(txt))return "shoulders";
@@ -2388,7 +2392,11 @@ function renderLog(c){
   // Calcola workout corretto (override giornaliero ha priorità sullo spostamento globale)
   const wIdx=getDayWorkoutIdx(logDayIdx,dk);
   const day=DEF_DAYS[wIdx];
-  const exDefs=getExDefs(wIdx);
+  const saved=DB.entries[dk];
+  const hasSavedMachineRow=wIdx===7&&saved?.dayIdx===wIdx&&saved.sets?.some(
+    set=>(set.exName||saved.exercises?.[set.ei]?.n)===FULL_BODY_A_PREVIOUS_ROW
+  );
+  const exDefs=hasSavedMachineRow&&saved.exercises?saved.exercises:getExDefs(wIdx);
   c.appendChild(gymPicker(logGym,gym=>{logGym=gym;logEquipment={};DB.gymSettings.selected=gym;saveDB("gymSettings");render();},logSets.length>0||!!DB.entries[dk]));
   exDefs.forEach((ex,ei)=>{if(!logEquipment[ei])logEquipment[ei]={...equipmentFor(ex.n,logGym)};});
   const sessionEquipment=()=>Object.fromEntries(exDefs.map((ex,ei)=>[ei,{...currentEquipment(ex,ei)}]));
@@ -2807,12 +2815,6 @@ function renderSkipSection(c,dk,wIdx){
 
 // ── DATABASE ALTERNATIVE ESERCIZI ────────────────────────────────────────
 const EXERCISE_ALTS={
-  "Rematore Chest-Supported":[
-    {n:"Rematore con manubri su panca inclinata",muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec",note:"RIR 1-2 · TUT 2-0-1 · Petto appoggiato alla panca"},
-  ],
-  "Rematore con manubri su panca inclinata":[
-    {n:"Rematore Chest-Supported",muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec",note:"RIR 1-2 · TUT 2-0-1"},
-  ],
   "Panca Piana bilanciere":[
     {n:"Panca Piana manubri",muscles:"Petto · Tricipiti · Delt.Ant.",recovery:"3 min",note:"ROM maggiore · instabilità controllata"},
     {n:"Chest Press macchina",muscles:"Petto · Tricipiti",recovery:"2 min",note:"Tensione costante · sicuro in solitaria"},
@@ -3285,7 +3287,14 @@ function openSkipModal(dk,wIdx){
 function getExDefs(workoutIdx){
   const raw=DB.exDefs[workoutIdx];
   if(!raw||!raw.length)return DEF_DAYS[workoutIdx].exs.map(e=>({...e}));
-  return raw.map(x=>typeof x==="string"?{n:x,sets:3,reps:"10",note:""}:{...x});
+  return raw.map(x=>{
+    const exercise=typeof x==="string"?{n:x,sets:3,reps:"10",note:""}:{...x};
+    if(workoutIdx===7&&exercise.n===FULL_BODY_A_PREVIOUS_ROW){
+      exercise.n=FULL_BODY_A_ROW;
+      exercise.note=[exercise.note,FULL_BODY_A_ROW_CUE].filter(Boolean).join(" · ");
+    }
+    return exercise;
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
