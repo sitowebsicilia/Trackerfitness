@@ -1297,24 +1297,35 @@ const PHASES=[
   {id:2,name:"NUOVO BLOCCO",weeks:6,color:"#47c8ff",icon:"💪"},
   {id:3,name:"MANTENIMENTO",weeks:4,color:"#9b47ff",icon:"✅"},
 ];
+const MESOCYCLE_3={id:3,name:"MESOCICLO 3 · IPERTROFIA",weeks:8,color:"#47c8ff",icon:"💪"};
+const MESOCYCLE_3_START="2026-11-24";
+function getActivePhase(){
+  return todayStr()>=MESOCYCLE_3_START?MESOCYCLE_3:PHASES[DB.currentPhase-1];
+}
 const SESSIONS_PER_MESOCYCLE_WEEK=3;
 function isMainMesocycleWorkout(workoutIdx){
   return [0,2,4].includes(workoutIdx);
 }
 function getPhaseSessionCount(){
-  return Object.entries(DB.entries)
-    .filter(([date,e])=>date>=DB.programStart&&date<=todayStr()&&!e.skipped&&isMainMesocycleWorkout(e.dayIdx))
-    .length;
+  const today=todayStr();
+  const isNewCycle=getActivePhase()===MESOCYCLE_3;
+  const start=isNewCycle?MESOCYCLE_3_START:DB.programStart;
+  return Object.entries(DB.entries).filter(([date,entry])=>{
+    if(date<start||date>today||entry.skipped)return false;
+    return isNewCycle
+      ?Object.values(NEW_WORKOUT_BY_SLOT).includes(entry.dayIdx)&&entry.completed===true
+      :isMainMesocycleWorkout(entry.dayIdx);
+  }).length;
 }
 function getWeeksElapsed(){
   return Math.floor(getPhaseSessionCount()/SESSIONS_PER_MESOCYCLE_WEEK);
 }
 function getPhaseProgress(){
-  const ph=PHASES[DB.currentPhase-1];
+  const ph=getActivePhase();
   const completedSessions=getPhaseSessionCount();
   const totalSessions=ph.weeks*SESSIONS_PER_MESOCYCLE_WEEK;
-  const completedWeeks=Math.floor(completedSessions/SESSIONS_PER_MESOCYCLE_WEEK);
-  const currentWeek=Math.min(ph.weeks,Math.floor(completedSessions/SESSIONS_PER_MESOCYCLE_WEEK)+1);
+  const completedWeeks=Math.min(ph.weeks,Math.floor(completedSessions/SESSIONS_PER_MESOCYCLE_WEEK));
+  const currentWeek=ph===MESOCYCLE_3?completedWeeks:Math.min(ph.weeks,completedWeeks+1);
   return{
     completedSessions,
     totalSessions,
@@ -1326,6 +1337,7 @@ function getPhaseProgress(){
   };
 }
 function advancePhase(){
+  if(getActivePhase()===MESOCYCLE_3)return;
   const next=DB.currentPhase>=3?1:DB.currentPhase+1;
   DB.currentPhase=next;DB.programStart=localDateString();
   saveDB("currentPhase");saveDB("programStart");
@@ -1334,11 +1346,15 @@ function advancePhase(){
 }
 
 // wIdx = indice workout corretto per il giorno selezionato, tenendo conto dello spostamento
-const NEW_WORKOUT_START="2026-11-23";
+const MESOCYCLE_3_FIRST_WEEK={
+  "2026-11-24":7,"2026-11-25":1,"2026-11-26":8,
+  "2026-11-27":1,"2026-11-28":9,"2026-11-29":1
+};
 const NEW_WORKOUT_BY_SLOT={0:7,2:8,4:9};
 function getWorkoutIdx(dayOfWeek,dateStr){
+  if(Object.hasOwn(MESOCYCLE_3_FIRST_WEEK,dateStr))return MESOCYCLE_3_FIRST_WEEK[dateStr];
   const slot=(dayOfWeek-(DB.scheduleOffset%7)+700)%7;
-  return dateStr>=NEW_WORKOUT_START?(NEW_WORKOUT_BY_SLOT[slot]??slot):slot;
+  return dateStr>=MESOCYCLE_3_START?(NEW_WORKOUT_BY_SLOT[slot]??slot):slot;
 }
 // Restituisce wIdx con supporto per override giornalieri (es. riposo assorbito)
 function getDayWorkoutIdx(dayOfWeek,dateStr){
@@ -1346,7 +1362,7 @@ function getDayWorkoutIdx(dayOfWeek,dateStr){
   if(entry&&!entry.skipped&&DEF_DAYS[entry.dayIdx])return entry.dayIdx;
   const override=DB.dayOverrides[dateStr];
   if(override!==undefined){
-    return dateStr>=NEW_WORKOUT_START?(NEW_WORKOUT_BY_SLOT[override]??override):override;
+    return dateStr>=MESOCYCLE_3_START?(NEW_WORKOUT_BY_SLOT[override]??override):override;
   }
   return getWorkoutIdx(dayOfWeek,dateStr);
 }
@@ -1368,7 +1384,7 @@ function findNextRestDay(fromDateStr){
 // I giorni di riposo (in base al calendario originale) rimangono riposo.
 // I giorni già completati non vengono toccati ma aggiornano la posizione in sequenza.
 function recalculateWeekFrom(fromDateStr,fromWIdx){
-  const seq=fromDateStr>=NEW_WORKOUT_START?[7,8,9,5]:[0,2,4,5];
+  const seq=fromDateStr>=MESOCYCLE_3_START?[7,8,9,5]:[0,2,4,5];
   let pos=seq.indexOf(fromWIdx);
   if(pos===-1)pos=0;
   const cur=new Date(fromDateStr+"T00:00:00");
@@ -1634,13 +1650,13 @@ function campaignCard(ph,phaseProgress){
   const body=el("div",{style:"display:grid;grid-template-columns:94px 1fr;gap:12px;align-items:center"});
   body.appendChild(el("div",{class:"campaign-art"},[
     artworkImage("campaign_mesociclo2.jpg"),
-    el("div",{class:"campaign-art-core"},["MESOCICLO "+DB.currentPhase])
+    el("div",{class:"campaign-art-core"},["MESOCICLO "+ph.id])
   ]));
   const info=el("div");
-  info.appendChild(el("div",{class:"system-title",style:"font-size:20px"},["MESOCICLO "+DB.currentPhase]));
-  info.appendChild(el("div",{class:"system-subtitle",style:"color:var(--a2);font-weight:800"},[ph.name]));
+  info.appendChild(el("div",{class:"system-title",style:"font-size:20px"},["MESOCICLO "+ph.id]));
+  info.appendChild(el("div",{class:"system-subtitle",style:"color:var(--a2);font-weight:800"},[ph===MESOCYCLE_3?"IPERTROFIA":ph.name]));
   info.appendChild(el("div",{style:"display:flex;justify-content:space-between;color:var(--txt);font-size:12px;font-weight:800;margin:11px 0 6px"},[
-    el("span",{},["SETTIMANA "+phaseProgress.currentWeek+" / "+ph.weeks]),
+    el("span",{},[ph===MESOCYCLE_3?phaseProgress.completedWeeks+" / "+ph.weeks+" SETTIMANE SVOLTE":"SETTIMANA "+phaseProgress.currentWeek+" / "+ph.weeks]),
     el("span",{},[phaseProgress.completedSessions+" / "+phaseProgress.totalSessions+" SESSIONI"])
   ]));
   info.appendChild(systemProgress(phaseProgress.completedSessions,phaseProgress.totalSessions,"var(--a2)"));
@@ -1929,10 +1945,10 @@ function render(){
   else if(currentTab==="coach")renderGeneralCoach(c);
   else if(currentTab==="nutrition")renderSystemNutrition(c);
   else if(currentTab==="profile")renderProfile(c);
-  const ph=PHASES[DB.currentPhase-1];
+  const ph=getActivePhase();
   const phaseProgress=getPhaseProgress();
   const badge=$("phase-badge");
-  if(badge)badge.textContent=ph.icon+" "+ph.name+" · Sett."+phaseProgress.currentWeek;
+  if(badge)badge.textContent=ph.icon+" "+ph.name+(ph===MESOCYCLE_3?" · "+phaseProgress.completedWeeks+" settimane svolte":" · Sett."+phaseProgress.currentWeek);
 }
 
 // ── INIT LOG DAY ───────────────────────────────────────────────────────
@@ -2370,7 +2386,7 @@ function renderLog(c){
     const savedExercises=new Set(DB.entries[dk]?.savedExercises||[]);
     if(savedExerciseIndex!==null)savedExercises.add(savedExerciseIndex);
     if(finishSession)savedSets.forEach(set=>savedExercises.add(set.ei));
-    DB.entries[dk]={dayIdx:wIdx,gymId:logGym,equipment:sessionEquipment(),exercises,sets:savedSets,savedExercises:[...savedExercises].sort((a,b)=>a-b),notes:logNote,ts:new Date().toISOString()};
+    DB.entries[dk]={dayIdx:wIdx,gymId:logGym,equipment:sessionEquipment(),exercises,sets:savedSets,savedExercises:[...savedExercises].sort((a,b)=>a-b),completed:finishSession||DB.entries[dk]?.completed===true,notes:logNote,ts:new Date().toISOString()};
     logSets=savedSets;
     saveDB("entries");
     checkPRs(wIdx,dk);
@@ -2413,9 +2429,9 @@ function renderLog(c){
   c.appendChild(pillsWrap);
 
   // ── FASE COMPATTA (solo se completata → sblocca) ─────────────────
-  const ph=PHASES[DB.currentPhase-1];
+  const ph=getActivePhase();
   const phDone=phaseProgress.done;
-  if(phDone){
+  if(phDone&&ph!==MESOCYCLE_3){
     const nxtPh=PHASES[DB.currentPhase>=3?0:DB.currentPhase];
     const phBanner=el("div",{style:"background:"+ph.color+"11;border:2px solid "+ph.color+"66;border-radius:12px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px"});
     phBanner.appendChild(el("div",{style:"font-weight:800;font-size:12px;color:"+ph.color},["🎉 "+ph.name+" COMPLETATA!"]));
@@ -4374,11 +4390,13 @@ function renderProgress(c){
   c.appendChild(systemProgress(player.levelExp,player.nextExp,"var(--a2)"));
 
   // ── FASI DI ALLENAMENTO ──────────────────────────────────────────
-  const phP=PHASES[DB.currentPhase-1];
+  const phP=getActivePhase();
   const phaseProgressP=getPhaseProgress();
   const phDoneP=phaseProgressP.done;
   const phCard=el("div",{class:"card",style:"padding:12px 14px;margin-bottom:12px"});
-  if(phDoneP){
+  if(phP===MESOCYCLE_3){
+    phCard.appendChild(campaignCard(phP,phaseProgressP));
+  } else if(phDoneP){
     const nxtPh=PHASES[DB.currentPhase>=3?0:DB.currentPhase];
     phCard.style.border="2px solid "+phP.color;
     phCard.style.background=phP.color+"11";
@@ -5007,7 +5025,7 @@ function generateReport(type){
 
   const nome=p.nome||"Atleta";
   const bmi=p.peso&&p.altezza?parseFloat((p.peso/((p.altezza/100)**2)).toFixed(1)):"—";
-  const ph=PHASES[DB.currentPhase-1];
+  const ph=getActivePhase();
   const phaseProgress=getPhaseProgress();
 
   const obiettivoMap={dimagrimento:"🔥 Dimagrimento",massa:"💪 Aumento massa",ricomposizione:"⚡ Ricomposizione",mantenimento:"✅ Mantenimento",forza:"🏋️ Forza"};
@@ -5076,7 +5094,7 @@ function generateReport(type){
   <div class="kpi-card"><div class="kpi-val">${totalSess}</div><div class="kpi-lbl">Sessioni totali</div></div>
   <div class="kpi-card"><div class="kpi-val">${last30.filter(([d,e])=>!e.skipped).length}</div><div class="kpi-lbl">Questo mese</div></div>
   <div class="kpi-card"><div class="kpi-val">${totalSaltati}</div><div class="kpi-lbl">Saltati</div></div>
-  <div class="kpi-card"><div class="kpi-val">${phaseProgress.currentWeek}</div><div class="kpi-lbl">Settimana ${ph.name}</div></div>
+  <div class="kpi-card"><div class="kpi-val">${phaseProgress.currentWeek}</div><div class="kpi-lbl">${ph===MESOCYCLE_3?"Settimane svolte · ":"Settimana "}${ph.name}</div></div>
   </div>
 <div style="font-size:10px;color:#888;margin-bottom:12px">Progresso mesociclo: ${phaseProgress.completedSessions}/${phaseProgress.totalSessions} sedute principali completate. Pause, ferie, cardio e recupero attivo non avanzano la settimana.</div>
 <div class="section-title" style="margin-top:14px">📅 Scheda Allenamento</div>`;
