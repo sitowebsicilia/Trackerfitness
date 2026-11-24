@@ -1677,6 +1677,15 @@ function parseDetail(ex,label,pattern,fallback){
   const m=txt.match(pattern);
   return m?m[1].trim():fallback;
 }
+function getTutTempo(note){
+  const match=note?.match(/\bTUT\s+(\d+)\s*-\s*(\d+)\s*-\s*(\d+)(?!\d|\s*-)/i);
+  if(!match)return null;
+  const [,returnSeconds,pauseSeconds,effortSeconds]=match;
+  return {
+    value:[returnSeconds,pauseSeconds,effortSeconds].join("-"),
+    description:returnSeconds+" s ritorno · "+(Number(pauseSeconds)?pauseSeconds+" s pausa":"senza pausa")+" · "+effortSeconds+" s fase attiva"
+  };
+}
 function crystalFrame(){
   const frame=el("div",{class:"crystal-frame","aria-hidden":"true"});
   const xs=[0,240,576,960,1296,1536],ys=[0,320,430,630,800,1024];
@@ -1703,7 +1712,8 @@ function exerciseMissionCard(ex,ei,section,exDefs){
   info.appendChild(title);
   if(ex.muscles)info.appendChild(el("div",{style:"font-size:11px;color:var(--mut);font-weight:700;margin-bottom:5px"},[ex.muscles]));
   info.appendChild(el("div",{class:"plan-ex-target",style:"font-size:12px;margin-bottom:7px"},[getPlanTargetLabel(ex)]));
-  const tut=parseDetail(ex,"TUT",/TUT\s*([0-9\-]+)/i,"3-1-1");
+  const tempo=getTutTempo(ex.note);
+  const tut=tempo?.value||parseDetail(ex,"TUT",/TUT\s*([0-9\-]+)/i,"3-1-1");
   const rir=parseDetail(ex,"RIR",/RIR\s*([0-9\-]+)/i,"0-2");
   const rec=ex.recovery||parseDetail(ex,"REC",/recupero\s*([0-9\-]+\s*(?:sec|min))/i,"2-3 min");
   const last=/cedimento/i.test(ex.note||"")?"CEDIMENTO":"TECNICA";
@@ -1711,7 +1721,9 @@ function exerciseMissionCard(ex,ei,section,exDefs){
   inner.appendChild(identity);
   const tiles=el("div",{class:"hud-tile-grid"});
   [["TUT",tut],["RIR",rir],["RECUPERO",rec],["ULTIMA SERIE",last]].forEach(([l,v])=>{
-    tiles.appendChild(el("div",{class:"hud-tile "+(l==="ULTIMA SERIE"&&isBoss?"danger":"")},[el("div",{class:"hud-tile-label"},[l]),el("div",{class:"hud-tile-value"},[v])]));
+    const tile=el("div",{class:"hud-tile "+(l==="ULTIMA SERIE"&&isBoss?"danger":"")},[el("div",{class:"hud-tile-label"},[l]),el("div",{class:"hud-tile-value"},[v])]);
+    if(l==="TUT"&&tempo)tile.appendChild(el("div",{class:"system-subtitle"},[tempo.description]));
+    tiles.appendChild(tile);
   });
   inner.appendChild(tiles);
   if(ex.note)inner.appendChild(el("div",{class:"objective-line"},["◎ Obiettivo: "+(ex.note.match(/progressione\s*([^·]+)/i)?.[1]?.trim()||"Carico / Rep Goal")]));
