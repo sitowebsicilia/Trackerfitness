@@ -368,9 +368,9 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
 
 <script>
 // ── DATI BASE ─────────────────────────────────────────────────────────
-const FULL_BODY_A_PREVIOUS_ROW="Rematore Chest-Supported";
-const FULL_BODY_A_ROW="Rematore con manubri su panca inclinata";
-const FULL_BODY_A_ROW_CUE="Petto appoggiato alla panca";
+const PREVIOUS_MACHINE_ROW_BY_WORKOUT={7:"Rematore Chest-Supported",9:"Rematore macchina con supporto"};
+const INCLINE_DUMBBELL_ROW="Rematore con manubri su panca inclinata";
+const INCLINE_DUMBBELL_ROW_CUE="Petto appoggiato alla panca";
 const DEF_DAYS=[
   {label:"LUN",name:"FULL BODY",color:"#e8ff47",exs:[
     {n:"Mobilità in estensione toracica con foam roller",sets:1,reps:"2-3 min",note:"Mobilità/attivazione · TUT lento · estensione toracica",muscles:"Mobilità toracica",recovery:"30 sec"},
@@ -431,7 +431,7 @@ const DEF_DAYS=[
   {label:"A",name:"FULL BODY A",color:"#43d9ff",exs:[
     {n:"Hack Squat macchina",sets:3,reps:"6-10",note:"RIR 2 · TUT 2-0-1",muscles:"Quadricipiti · Glutei",recovery:"180 sec"},
     {n:"Chest Press convergente",sets:3,reps:"8-12",note:"RIR 2 · TUT 2-0-1",muscles:"Pettorali",recovery:"180 sec"},
-    {n:FULL_BODY_A_ROW,sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1 · "+FULL_BODY_A_ROW_CUE,muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec"},
+    {n:INCLINE_DUMBBELL_ROW,sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1 · "+INCLINE_DUMBBELL_ROW_CUE,muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec"},
     {n:"Leg Curl seduto",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Femorali",recovery:"120 sec"},
     {n:"Alzate Laterali ai Cavi",sets:2,reps:"12-20",note:"RIR 1-2 · TUT 2-0-1",muscles:"Deltoidi laterali",recovery:"90 sec"},
     {n:"Curl Bicipiti al Cavo",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Bicipiti · Brachiale",recovery:"120 sec"},
@@ -452,7 +452,7 @@ const DEF_DAYS=[
     {n:"Pressa 45°",sets:3,reps:"10-15",note:"RIR 2 · TUT 2-0-1",muscles:"Quadricipiti · Glutei",recovery:"180 sec"},
     {n:"Lat Machine presa neutra",sets:2,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale",recovery:"150 sec"},
     {n:"Chest Press macchina",sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Pettorali",recovery:"180 sec"},
-    {n:"Rematore macchina con supporto",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"120 sec"},
+    {n:INCLINE_DUMBBELL_ROW,sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1 · "+INCLINE_DUMBBELL_ROW_CUE,muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"120 sec"},
     {n:"Leg Curl seduto",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Femorali",recovery:"120 sec"},
     {n:"Alzate Laterali ai Cavi",sets:2,reps:"12-20",note:"RIR 1-2 · TUT 2-0-1",muscles:"Deltoidi laterali",recovery:"90 sec"},
     {n:"Curl Panca Scott macchina",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Bicipiti · Brachiale",recovery:"120 sec"},
@@ -2393,8 +2393,9 @@ function renderLog(c){
   const wIdx=getDayWorkoutIdx(logDayIdx,dk);
   const day=DEF_DAYS[wIdx];
   const saved=DB.entries[dk];
-  const hasSavedMachineRow=wIdx===7&&saved?.dayIdx===wIdx&&saved.sets?.some(
-    set=>(set.exName||saved.exercises?.[set.ei]?.n)===FULL_BODY_A_PREVIOUS_ROW
+  const previousMachineRow=PREVIOUS_MACHINE_ROW_BY_WORKOUT[wIdx];
+  const hasSavedMachineRow=previousMachineRow&&saved?.dayIdx===wIdx&&saved.sets?.some(
+    set=>(set.exName||saved.exercises?.[set.ei]?.n)===previousMachineRow
   );
   const exDefs=hasSavedMachineRow&&saved.exercises?saved.exercises:getExDefs(wIdx);
   c.appendChild(gymPicker(logGym,gym=>{logGym=gym;logEquipment={};DB.gymSettings.selected=gym;saveDB("gymSettings");render();},logSets.length>0||!!DB.entries[dk]));
@@ -3289,9 +3290,9 @@ function getExDefs(workoutIdx){
   if(!raw||!raw.length)return DEF_DAYS[workoutIdx].exs.map(e=>({...e}));
   return raw.map(x=>{
     const exercise=typeof x==="string"?{n:x,sets:3,reps:"10",note:""}:{...x};
-    if(workoutIdx===7&&exercise.n===FULL_BODY_A_PREVIOUS_ROW){
-      exercise.n=FULL_BODY_A_ROW;
-      exercise.note=[exercise.note,FULL_BODY_A_ROW_CUE].filter(Boolean).join(" · ");
+    if(exercise.n===PREVIOUS_MACHINE_ROW_BY_WORKOUT[workoutIdx]){
+      exercise.n=INCLINE_DUMBBELL_ROW;
+      exercise.note=[exercise.note,INCLINE_DUMBBELL_ROW_CUE].filter(Boolean).join(" · ");
     }
     return exercise;
   });
