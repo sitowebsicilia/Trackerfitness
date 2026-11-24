@@ -327,20 +327,6 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
 .exercise-cue-text{font-size:16px!important;line-height:1.48!important;color:#eaf7ff!important;font-weight:800}
 @media(max-width:390px){.crystal-card .plan-ex-name{font-size:19px!important}.crystal-card .hud-tile-value{font-size:17px!important}}
 
-.m3-exercise{margin-bottom:16px}.m3-exercise>*:not(.crystal-frame){position:relative;z-index:1}
-.m3-section{border:1px solid #235f89;margin:8px 0;background:#071426}
-.m3-section summary{padding:12px;cursor:pointer;font-weight:800;color:#70d9ff;min-height:44px}
-.m3-section-body{padding:0 12px 12px}.m3-section p,.m3-section li{font-size:14px;line-height:1.55}
-.m3-set{padding:12px 0;border-top:1px solid #235f89}.m3-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.m3-field{display:block;margin:8px 0;min-width:0;font-size:13px}.m3-field span{display:block;margin-bottom:5px;color:#b7d8ee}
-.m3-field .inp{font-size:16px;min-height:44px;width:100%}.m3-check{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px}
-.m3-check input{width:22px;height:22px;flex-shrink:0}.m3-set .btn{width:100%;min-height:44px;white-space:normal}
-.m3-images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.m3-image-pending{border:1px dashed #235f89;padding:12px}
-.m3-image-button{background:#071426;color:#b7d8ee;border:1px solid #235f89;padding:4px;cursor:pointer}.m3-image-button img{width:100%;height:auto}
-.m3-table{width:100%;border-collapse:collapse;font-size:13px}.m3-table th,.m3-table td{padding:9px 4px;border-bottom:1px solid #235f89;text-align:left}
-@media(max-width:380px){.m3-fields{grid-template-columns:1fr}.m3-images{grid-template-columns:1fr}}
-
-
 </style>
 </head>
 <body>
@@ -380,7 +366,6 @@ html,body{font-size:16px;line-height:1.5;background:#040d19;color:var(--txt)}
   <button class="rskip" onclick="stopRecoveryTimer()">✕ Salta</button>
 </div>
 
-<script src="mesocycle3-bootstrap.js"></script>
 <script>
 // ── DATI BASE ─────────────────────────────────────────────────────────
 const DEF_DAYS=[
@@ -440,6 +425,38 @@ const DEF_DAYS=[
     {n:"Cardio leggero o recupero attivo",sets:1,reps:"20-40 min",note:"Giorno 6 del mesociclo · mantenere intensità facile e recuperante",muscles:"Recupero attivo · Condizionamento",recovery:""},
   ]},
   {label:"DOM",name:"RIPOSO",color:"#9b47ff",exs:[]},
+  {label:"A",name:"FULL BODY A",color:"#43d9ff",exs:[
+    {n:"Hack Squat macchina",sets:3,reps:"6-10",note:"RIR 2 · TUT 2-0-1",muscles:"Quadricipiti · Glutei",recovery:"180 sec"},
+    {n:"Chest Press convergente",sets:3,reps:"8-12",note:"RIR 2 · TUT 2-0-1",muscles:"Pettorali",recovery:"180 sec"},
+    {n:"Rematore Chest-Supported",sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"150 sec"},
+    {n:"Leg Curl seduto",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Femorali",recovery:"120 sec"},
+    {n:"Alzate Laterali ai Cavi",sets:2,reps:"12-20",note:"RIR 1-2 · TUT 2-0-1",muscles:"Deltoidi laterali",recovery:"90 sec"},
+    {n:"Curl Bicipiti al Cavo",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Bicipiti · Brachiale",recovery:"120 sec"},
+    {n:"Calf Raise in piedi",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Gastrocnemio · Soleo",recovery:"90 sec"},
+    {n:"Crunch Press",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Retto addominale",recovery:"90 sec"},
+  ]},
+  {label:"B",name:"FULL BODY B",color:"#43d9ff",exs:[
+    {n:"Hip Thrust macchina",sets:3,reps:"8-12",note:"RIR 2 · TUT 2-1-1",muscles:"Glutei",recovery:"150 sec"},
+    {n:"Lat Machine presa neutra",sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale · Grande rotondo",recovery:"150 sec"},
+    {n:"Panca inclinata manubri 15–30°",sets:3,reps:"8-12",note:"RIR 2 · TUT 2-0-1",muscles:"Pettorali · enfasi clavicolare",recovery:"180 sec"},
+    {n:"Leg Extension",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Quadricipiti",recovery:"120 sec"},
+    {n:"Reverse Pec Deck",sets:2,reps:"12-20",note:"RIR 1-2 · TUT 2-0-1",muscles:"Deltoidi posteriori",recovery:"90 sec"},
+    {n:"Estensioni Tricipiti sopra testa al cavo",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Tricipiti · capo lungo",recovery:"120 sec"},
+    {n:"Shrug con Manubri",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Trapezi superiori",recovery:"120 sec"},
+    {n:"Reverse Crunch a corpo libero",sets:2,reps:"10-20",note:"RIR 1-2 · TUT 2-1-1",muscles:"Retto addominale",recovery:"90 sec"},
+  ]},
+  {label:"C",name:"FULL BODY C",color:"#43d9ff",exs:[
+    {n:"Pressa 45°",sets:3,reps:"10-15",note:"RIR 2 · TUT 2-0-1",muscles:"Quadricipiti · Glutei",recovery:"180 sec"},
+    {n:"Lat Machine presa neutra",sets:2,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale",recovery:"150 sec"},
+    {n:"Chest Press macchina",sets:3,reps:"8-12",note:"RIR 1-2 · TUT 2-0-1",muscles:"Pettorali",recovery:"180 sec"},
+    {n:"Rematore macchina con supporto",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Gran dorsale · Romboidi · Trapezi medi",recovery:"120 sec"},
+    {n:"Leg Curl seduto",sets:3,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Femorali",recovery:"120 sec"},
+    {n:"Alzate Laterali ai Cavi",sets:2,reps:"12-20",note:"RIR 1-2 · TUT 2-0-1",muscles:"Deltoidi laterali",recovery:"90 sec"},
+    {n:"Curl Panca Scott macchina",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Bicipiti · Brachiale",recovery:"120 sec"},
+    {n:"Push Down Tricipiti",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-0-1",muscles:"Tricipiti",recovery:"120 sec"},
+    {n:"Reverse Wrist Curl",sets:2,reps:"12-20",note:"RIR 2 · TUT 2-0-1",muscles:"Avambracci",recovery:"90 sec"},
+    {n:"Crunch Press",sets:2,reps:"10-15",note:"RIR 1-2 · TUT 2-1-1",muscles:"Retto addominale",recovery:"90 sec"},
+  ]},
 ];
 
 const TARGETS_DEF={kcal:2500,p:170,c:285,f:75};
@@ -651,7 +668,7 @@ let DB={
     targets:{kcal:2500,p:170,c:285,f:75}
   },
 };
-// Program start is preserved.
+if(!LS.get("ft_programStart")){LS.set("ft_programStart",DB.programStart);}
 function saveDB(k){
   const saved=LS.set("ft_"+k,DB[k]);
   if(!saved&&typeof flash==="function")flash("Salvataggio non riuscito: esporta un backup","#ff4567");
@@ -669,7 +686,7 @@ function normalizeCoreToCrunchPress20261012(){
     recovery:"90 sec"
   };
   let changedDefs=false,changedEntries=false;
-  (DB.exDefs||[]).forEach(day=>{
+  (DB.exDefs||[]).slice(0,7).forEach(day=>{
     (day||[]).forEach(ex=>{
       if(coreNames.test(ex.n||"")){
         Object.assign(ex,crunch);
@@ -678,6 +695,7 @@ function normalizeCoreToCrunchPress20261012(){
     });
   });
   Object.values(DB.entries||{}).forEach(entry=>{
+    if(entry.dayIdx>=7)return;
     (entry.exercises||[]).forEach(ex=>{
       if(coreNames.test(ex.n||"")){
         Object.assign(ex,crunch);
@@ -695,8 +713,10 @@ function normalizeCoreToCrunchPress20261012(){
   if(changedEntries)saveDB("entries");
   LS.set(key,true);
 }
-// Legacy version is preserved.
-// Historical migration retired; existing data is preserved: normalizeCoreToCrunchPress20261012();
+if(!LS.get("ft_programVersion")){
+  LS.set("ft_programVersion",PROGRAM_VERSION);
+}
+normalizeCoreToCrunchPress20261012();
 function applyManualWorkoutBackfill(){
   const backfillKey="ft_manualWorkoutBackfill_2026_08_04";
   if(LS.get(backfillKey))return;
@@ -1094,19 +1114,19 @@ function ensureProfileDefaults(){
   if(!DB.nutritionPrefs.snackClocks)DB.nutritionPrefs.snackClocks={};
   if(changed){saveDB("profile");saveDB("nutritionPrefs");}
 }
-// Historical migration retired; existing data is preserved: ensureProfileDefaults();
-// Historical migration retired; existing data is preserved: applyManualWorkoutBackfill();
-// Historical migration retired; existing data is preserved: applySicilyTrainingPauseBackfill();
-// Historical migration retired; existing data is preserved: applyManualFullBodyBackfill20260824();
-// Historical migration retired; existing data is preserved: applyScheduleRestartAfterPull20260916();
-// Historical migration retired; existing data is preserved: applyScheduleCorrectionFullThenPull20260916();
-// Historical migration retired; existing data is preserved: applyScheduleCorrectionFullThenPush20260916();
-// Historical migration retired; existing data is preserved: applyManualWorkoutBackfill20260924And26();
-// Historical migration retired; existing data is preserved: fixWrongChestPressBackfill20260926();
-// Historical migration retired; existing data is preserved: applyOctoberRestartAfterFamilyPause20261012();
-// Historical migration retired; existing data is preserved: applyManualPullBackfill20261020();
-// Historical migration retired; existing data is preserved: applyScheduleAfterTuesdayPull20261022();
-// Historical migration retired; existing data is preserved: applySaturdayFullBodySchedule20261024();
+ensureProfileDefaults();
+applyManualWorkoutBackfill();
+applySicilyTrainingPauseBackfill();
+applyManualFullBodyBackfill20260824();
+applyScheduleRestartAfterPull20260916();
+applyScheduleCorrectionFullThenPull20260916();
+applyScheduleCorrectionFullThenPush20260916();
+applyManualWorkoutBackfill20260924And26();
+fixWrongChestPressBackfill20260926();
+applyOctoberRestartAfterFamilyPause20261012();
+applyManualPullBackfill20261020();
+applyScheduleAfterTuesdayPull20261022();
+applySaturdayFullBodySchedule20261024();
 
 // ── TIMER RECUPERO ─────────────────────────────────────────────────────
 function parseRecoverySec(str){
@@ -1314,13 +1334,21 @@ function advancePhase(){
 }
 
 // wIdx = indice workout corretto per il giorno selezionato, tenendo conto dello spostamento
-function getWorkoutIdx(dayOfWeek){
-  return(dayOfWeek-(DB.scheduleOffset%7)+700)%7;
+const NEW_WORKOUT_START="2026-11-23";
+const NEW_WORKOUT_BY_SLOT={0:7,2:8,4:9};
+function getWorkoutIdx(dayOfWeek,dateStr){
+  const slot=(dayOfWeek-(DB.scheduleOffset%7)+700)%7;
+  return dateStr>=NEW_WORKOUT_START?(NEW_WORKOUT_BY_SLOT[slot]??slot):slot;
 }
 // Restituisce wIdx con supporto per override giornalieri (es. riposo assorbito)
 function getDayWorkoutIdx(dayOfWeek,dateStr){
-  if(dateStr&&DB.dayOverrides[dateStr]!==undefined)return DB.dayOverrides[dateStr];
-  return getWorkoutIdx(dayOfWeek);
+  const entry=DB.entries[dateStr];
+  if(entry&&!entry.skipped&&DEF_DAYS[entry.dayIdx])return entry.dayIdx;
+  const override=DB.dayOverrides[dateStr];
+  if(override!==undefined){
+    return dateStr>=NEW_WORKOUT_START?(NEW_WORKOUT_BY_SLOT[override]??override):override;
+  }
+  return getWorkoutIdx(dayOfWeek,dateStr);
 }
 // Trova il prossimo giorno di riposo libero (non override, non già loggato) dopo fromDateStr
 function findNextRestDay(fromDateStr){
@@ -1331,7 +1359,7 @@ function findNextRestDay(fromDateStr){
     const dateStr=localDateString(d);
     if(DB.dayOverrides[dateStr]!==undefined)continue;
     if(DB.entries[dateStr]&&!DB.entries[dateStr].skipped)continue;
-    if(DEF_DAYS[getWorkoutIdx(dayOfWeek)].exs.length===0)return dateStr;
+    if(DEF_DAYS[getWorkoutIdx(dayOfWeek,dateStr)].exs.length===0)return dateStr;
   }
   return null;
 }
@@ -1340,7 +1368,7 @@ function findNextRestDay(fromDateStr){
 // I giorni di riposo (in base al calendario originale) rimangono riposo.
 // I giorni già completati non vengono toccati ma aggiornano la posizione in sequenza.
 function recalculateWeekFrom(fromDateStr,fromWIdx){
-  const seq=[0,2,4,5];
+  const seq=fromDateStr>=NEW_WORKOUT_START?[7,8,9,5]:[0,2,4,5];
   let pos=seq.indexOf(fromWIdx);
   if(pos===-1)pos=0;
   const cur=new Date(fromDateStr+"T00:00:00");
@@ -1351,7 +1379,7 @@ function recalculateWeekFrom(fromDateStr,fromWIdx){
   while(cur<=endOfWeek){
     const dateStr=localDateString(cur);
     const dOw=cur.getDay()===0?6:cur.getDay()-1;
-    const normalWIdx=getWorkoutIdx(dOw);
+    const normalWIdx=getWorkoutIdx(dOw,dateStr);
     const isWorkoutDay=DEF_DAYS[normalWIdx].exs.length>0;
     // Giorni già completati: aggiorna posizione sequenza senza toccare override
     if(DB.entries[dateStr]&&!DB.entries[dateStr].skipped){
@@ -1375,6 +1403,9 @@ const WORKOUT_MUSCLE_GROUPS={
   2:["quadricipiti","glutei","petto","spalle","tricipiti","core"],
   4:["femorali","glutei","dorso","bicipiti","core"],
   5:["recupero attivo"],
+  7:["gambe","petto","dorso","spalle","bicipiti","core"],
+  8:["gambe","petto","dorso","spalle","tricipiti","core"],
+  9:["gambe","petto","dorso","spalle","bicipiti","tricipiti","core"],
 };
 function isRestWorkout(workoutIdx){
   return workoutIdx==null||!DEF_DAYS[workoutIdx]||DEF_DAYS[workoutIdx].exs.length===0;
@@ -1393,7 +1424,7 @@ function remodelScheduleFromDate(dateStr,newWIdx){
   const selectedDayIdx=selectedDate.getDay()===0?6:selectedDate.getDay()-1;
   // Parte sempre dalla scheda base: i vecchi override non devono rientrare
   // nella nuova coda, altrimenti possono duplicare allenamenti già spostati.
-  const displacedWIdx=getWorkoutIdx(selectedDayIdx);
+  const displacedWIdx=getWorkoutIdx(selectedDayIdx,dateStr);
   const pending=isRestWorkout(displacedWIdx)||displacedWIdx===newWIdx?[]:[displacedWIdx];
   let lastWorkout=isRestWorkout(newWIdx)?null:newWIdx;
   let selectedOccurrenceConsumed=isRestWorkout(newWIdx)||newWIdx===displacedWIdx;
@@ -1421,7 +1452,7 @@ function remodelScheduleFromDate(dateStr,newWIdx){
       continue;
     }
 
-    const nextWIdx=getWorkoutIdx(nextDayIdx);
+    const nextWIdx=getWorkoutIdx(nextDayIdx,nextDateStr);
     if(!isRestWorkout(nextWIdx)){
       if(!selectedOccurrenceConsumed&&nextWIdx===newWIdx){
         selectedOccurrenceConsumed=true;
@@ -1462,7 +1493,7 @@ function normalizeCurrentSchedule(){
 function getBaseWorkoutIdxForDate(dateStr){
   const d=new Date(dateStr+"T12:00:00");
   const dayIdx=d.getDay()===0?6:d.getDay()-1;
-  return getWorkoutIdx(dayIdx);
+  return getWorkoutIdx(dayIdx,dateStr);
 }
 
 function previewShiftWorkoutToNextDay(dateStr,wIdx,days=5){
@@ -1710,7 +1741,7 @@ function getExerciseArtwork(ex){
   if(/tapis\s*roulant/.test(n))return "exercise_treadmill_fast_walk.jpg";
   if(n.includes("leg extension"))return "exercise_leg_extension.jpg";
   if(n.includes("croci")&&n.includes("cavi")&&n.includes("90"))return "exercise_seated_cable_fly_90.jpg";
-  if(n.includes("alzate laterali"))return "exercise_dumbbell_lateral_raise.jpg";
+  if(n.includes("alzate laterali")&&!n.includes("cavi"))return "exercise_dumbbell_lateral_raise.jpg";
   if(n.includes("katana"))return "exercise_katana_rope_extension.jpg";
   if(n.includes("leg curl")&&/sdraiato|prono/.test(n))return "exercise_lying_leg_curl.jpg";
   if(/pulley mono|rematore.*un braccio|single arm.*row/.test(n))return "exercise_single_arm_seated_row.jpg";
@@ -1852,7 +1883,7 @@ let recoveryAudioElement=null;
 
 // ── TAB ────────────────────────────────────────────────────────────────
 function switchTab(tab){
-  // Timer continues across tabs.
+  if(tab!=="log")stopRecoveryTimer();
   if(tab==="nutrition")nutDateOffset=0;
   currentTab=tab;
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{
@@ -2124,9 +2155,9 @@ function renderGeneralCoach(c){
 function getExerciseGroup(ex){
   const txt=((ex.muscles||"")+" "+(ex.n||"")+" "+(ex.note||"")).toLowerCase();
   if(/mobilit|stretch|cardio|tapis|recupero|foam|rotazioni|gatto|hinge|sleeper|propriocezione|adduzione scapole|tilt posteriore/.test(txt))return "skip";
-  if(/quad|glute|femoral|ischio|leg|pressa|curl sdraiato|extension/.test(txt))return "legs";
+  if(/quad|glute|femoral|ischio|leg|pressa|curl sdraiato|extension|polpacci|gastrocnemio|soleo/.test(txt))return "legs";
   if(/petto|panca|croci|chest|push-up/.test(txt))return "chest";
-  if(/dorso|lat|pulley|row|rematore/.test(txt))return "back";
+  if(/dorso|\blat\b|dorsale|pulley|row|rematore/.test(txt))return "back";
   if(/spalle|deltoid|lento|alzate|shoulder/.test(txt))return "shoulders";
   if(/bicip|curl|scott/.test(txt))return "biceps";
   if(/tricip|push down|french|katana/.test(txt))return "triceps";
@@ -3012,11 +3043,13 @@ function openExOptions(ei,exDefs){
       const newName=$("modal-ex-name").value.trim();
       if(!newName){flash("Nome non valido","#ff6b47");return;}
       const base=selectedAlt?{...ex,...selectedAlt}:{...ex};
+      DB.exDefs[wIdx]=getExDefs(wIdx);
       DB.exDefs[wIdx][ei]={...base,n:newName,sets:parseInt($("modal-ex-sets").value)||ex.sets,reps:$("modal-ex-reps").value.trim()||ex.reps,note:$("modal-ex-note").value.trim()};
       saveDB("exDefs");closeModal();flash("✓ Aggiornato!");render();
     }},["✓ Salva"]));
     brow.appendChild(el("button",{class:"btn btn-danger",style:"flex:1",onclick:()=>{
       if(!confirm("Rimuovere "+ex.n+"?"))return;
+      DB.exDefs[wIdx]=getExDefs(wIdx);
       DB.exDefs[wIdx].splice(ei,1);saveDB("exDefs");
       logSets=logSets.filter(s=>s.ei!==ei).map(s=>s.ei>ei?{...s,ei:s.ei-1}:s);
       closeModal();render();
@@ -3040,7 +3073,7 @@ function openAddExModal(exDefs){
     brow.appendChild(el("button",{class:"btn btn-acc",style:"flex:1",onclick:()=>{
       const n=$("modal-add-name").value.trim();
       if(!n){flash("Inserisci il nome","#ff6b47");return;}
-      if(!DB.exDefs[wIdx])DB.exDefs[wIdx]=[];
+      if(!DB.exDefs[wIdx])DB.exDefs[wIdx]=getExDefs(wIdx);
       DB.exDefs[wIdx].push({n,sets:parseInt($("modal-add-sets").value)||3,reps:$("modal-add-reps").value.trim()||"10",note:$("modal-add-note").value.trim()});
       saveDB("exDefs");closeModal();flash("✓ Aggiunto!");render();
     }},["+ Aggiungi"]));
@@ -4317,7 +4350,6 @@ function renderProgress(c){
   c.appendChild(systemProgress(player.levelExp,player.nextExp,"var(--a2)"));
 
   // ── FASI DI ALLENAMENTO ──────────────────────────────────────────
-  if(todayStr()<M3.start){
   const phP=PHASES[DB.currentPhase-1];
   const phaseProgressP=getPhaseProgress();
   const phDoneP=phaseProgressP.done;
@@ -4347,7 +4379,6 @@ function renderProgress(c){
     });
   }
   c.appendChild(phCard);
-  }
 
   // ── KPI GLOBALI (streak + PR count) ──────────────────────────────
   const streak=getStreak();
@@ -5132,10 +5163,6 @@ function generateReport(type){
   document.body.appendChild(overlay);
 }
 
-</script>
-<script src="mesocycle3.js"></script>
-<script src="mesocycle3-storage.js"></script>
-<script>
 // ── AVVIO ─────────────────────────────────────────────────────────────
 $("today-label").textContent=todayStr();
 rebuildEquipmentRecords();
